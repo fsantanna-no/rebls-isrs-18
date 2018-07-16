@@ -59,21 +59,14 @@
 \usepackage{subcaption} %% For complex figures with subfigures/subcaptions
                         %% http://ctan.org/pkg/subcaption
 
+\usepackage{xspace}
+\newcommand{\CEU}{\textsc{C\'{e}u}\xspace}
 
 \begin{document}
 
 %% Title information
-\title[Short Title]{Full Title}         %% [Short Title] is optional;
-                                        %% when present, will be used in
-                                        %% header instead of Full Title.
-\titlenote{with title note}             %% \titlenote is optional;
-                                        %% can be repeated if necessary;
-                                        %% contents suppressed with 'anonymous'
-\subtitle{Subtitle}                     %% \subtitle is optional
-\subtitlenote{with subtitle note}       %% \subtitlenote is optional;
-                                        %% can be repeated if necessary;
-                                        %% contents suppressed with 'anonymous'
-
+\title{Where Do Events Come From?}
+\subtitle{Reactive Programming From The Ground Up}
 
 %% Author information
 %% Contents and number of authors suppressed with 'anonymous'.
@@ -134,10 +127,28 @@
 %% Abstract
 %% Note: \begin{abstract}...\end{abstract} environment must come
 %% before \maketitle command
-\begin{abstract}
-Text of abstract \ldots.
-\end{abstract}
 
+\begin{abstract}
+In reactive and event-based systems, execution is guided by an external
+environment which produces inputs and consumes output events to and from the
+applications.
+Reactive languages provide dedicated syntax and semantics to deal with events
+and greatly simplify the programming experience in this domain.
+%
+Nevertheless, the environment is typically prefabricated in a host language and
+the very central concept of events is implemented externally to the reactive
+language.
+This separation exposes the environment as a rigid system component that
+evolves in separate from the application.
+%
+In this work, we propose an interrupt handler primitive for a reactive language
+targeting embedded systems in order to take control of the whole event loop,
+from the hardware input source and back to the hardware output sink.
+%
+We propose the new primitive in the context of the structured reactive language
+\CEU and discuss how it synergizes with the structured paradigm to provide
+automatic standby for applications and hot swapping for drivers during runtime.
+\end{abstract}
 
 %% 2012 ACM Computing Classification System (CSS) concepts
 %% Generate at 'http://dl.acm.org/ccs/ccs.cfm'.
@@ -163,21 +174,136 @@ Text of abstract \ldots.
 
 %% Keywords
 %% comma separated list
-\keywords{keyword1, keyword2, keyword3}  %% \keywords are mandatory in final camera-ready submission
+\keywords{interrupt service routine,
+          sleep mode,
+          synchronous reactive programming}
 
-
-%% \maketitle
-%% Note: \maketitle command must come after title commands, author
-%% commands, abstract environment, Computing Classification System
-%% environment and commands, and keywords command.
 \maketitle
-
 
 \section{Introduction}
 
-Text of paper \ldots
+Reactive applications interact continuously and in real time with the external
+world through input and output devices (e.g., buttons, displays, timers, etc.).
+%
+These interactions are typically represented as input events flowing from the
+devices to the application and as output events flowing from the application to
+the devices.
+%
+As illustrated in Figure~\ref{fig.loop}, devices can be encapsulated as a
+single component, \emph{the environment}, which controls the system execution
+in an event loop:
+the application sits idle waiting for an input;
+the environment awakes the application on the occurrence of an input;
+the application reacts to the input and generates back one or more outputs;
+the application becomes idle and the loop restarts.
 
-\cite{ceu.tecs17}
+\begin{figure}
+\centering
+\includegraphics[width=\linewidth]{loop}
+\caption{ Event loop in reactive systems.
+          The environment controls the application through input \& output
+          events.
+\label{fig.loop}
+}
+\end{figure}
+
+The environment is typically implemented in a host language (e.g., C) and
+controls the main event loop, invoking entry points in the reactive language
+runtime on the occurrence of inputs and also receiving output calls, both
+through a documented API.
+%
+As examples, Esterel~\cite{esterel.ieee91} relies on C for passing events
+between the environment and the running program~\cite{esterel.book.compiling},
+while Elm~\cite{frp.elm} uses the concept of \emph{ports}, which allows sending
+out values to JavaScript as commands and listening for values as
+subscriptions~\cite{frp.elm.ports}.
+
+The event-based separation between the application and the environment is
+arguably inevitable and happens at the right level of abstraction, since it
+connects the application with the operating system resources through a
+non-invasive API.
+%
+However, it involves two languages and the programmer may have to unnecessarily
+deal with multiple syntaxes, incompatible type systems, and different address
+spaces.
+%
+Furthermore, in the context of embedded systems, a proper host OS may even be
+absent or lacking enough drivers, which requires more low-level intervention
+from the application.
+
+In this work, we propose
+an interrupt handler primitive for a reactive language in
+order to take control of the whole event loop, from the
+hardware input source and back to the hardware output
+sink. We propose the new primitive in the context of
+the structured reactive language \CEU and discuss how
+it synergizes with the structured paradigm to provide
+automatic standby for applications and hot swapping
+for drivers during runtime.
+
+
+with different syntaxes and semantics.
+For instance, , type systems, and
+
+
+
+abstraction
+    - rigid
+    - two languages
+        - syntax and semantics
+            - integrates with features such as lexical scope, type system
+    - platforms w/o OS
+
+\newpage
+
+\begin{figure}
+\centering
+\includegraphics[width=\linewidth]{sync-async}
+\caption{ Event loop in reactive systems.
+          The environment controls the application through input \& output
+          events.
+\label{fig.loop}
+}
+\end{figure}
+
+what would be
+
+output (int,int) O;
+
+becomes
+
+output (int x, int y) O do
+end
+
+\begin{comment}
+% Esterel
+https://books.google.com.br/books?id=O5zi14i0KP4C&pg=PA31&lpg=PA31&dq=esterel+external+signal+api&source=bl&ots=43EBAqIkSJ&sig=npYylZteOmZAqv4f7SXAtJO9xr8&hl=en&sa=X&ved=0ahUKEwjFlf7-3p_cAhWPrVkKHXsFDWgQ6AEIUjAG#v=onepage&q=esterel%20external%20signal%20api&f=false
+Esterel relies on general-purpose languages such as C or C++ in two ways.       
+First, for portability, most Esterel compilers generate C instead of            
+assembly or some other executable representation.                               
+Such generated code provides an interface for passing events between the        
+environment and the running program.                                            
+Second, Esterel allows the use of data types and functions defined externally   
+(e.g., in C) to be used within an Esterel program.                              
+
+% Elm
+https://guide.elm-lang.org/interop/javascript.html
+Okay, in Elm, any communication with JavaScript goes through a port. Think of
+it like a hole in the side of your Elm program where you can send values in and
+out. These work exactly like the commands and subscriptions from the
+Architecture section. Sending values out to JS is a command. Listening for
+values coming in from JS is a subscription. Pretty neat!
+\end{comment}
+
+- excel define formulas for input but not the input itself
+
+output -> input
+
+the environment sits
+    inverse
+    reacts to output and generates inputs
+
+remain idle and react to the occurrence of events 
 
 
 %% Acknowledgments
@@ -199,7 +325,7 @@ Text of paper \ldots
 
 
 %% Bibliography
-\bibliography{my}
+\bibliography{my,other}
 
 
 %% Appendix
