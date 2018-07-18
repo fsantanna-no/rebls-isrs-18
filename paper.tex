@@ -130,24 +130,22 @@
 
 \begin{abstract}
 In reactive and event-based systems, execution is guided by an external
-environment which produces inputs and consumes output events to and from the
-applications.
+environment which generates inputs to the application and consumes outputs from
+it.
 Reactive languages provide dedicated syntax and semantics to deal with events
 and greatly simplify the programming experience in this domain.
 %
 Nevertheless, the environment is typically prefabricated in a host language and
 the very central concept of events is implemented externally to the reactive
 language.
-This separation exposes the environment as a rigid system component that
-evolves in separate from the application.
 %
 In this work, we propose an interrupt handler primitive for a reactive language
 targeting embedded systems in order to take control of the whole event loop,
-from the hardware input source and back to the hardware output sink.
+from a sensor input source and back to an actuator output.
 %
 We propose the new primitive in the context of the structured reactive language
-\CEU and discuss how it synergizes with the structured paradigm to provide
-automatic standby for applications and hot swapping for drivers during runtime.
+\CEU and discuss they synergize to provide automatic standby for applications
+and hot swapping of device drivers, while avoiding race conditions.
 \end{abstract}
 
 %% 2012 ACM Computing Classification System (CSS) concepts
@@ -183,7 +181,7 @@ automatic standby for applications and hot swapping for drivers during runtime.
 \section{Introduction}
 
 Reactive applications interact continuously and in real time with the external
-world through input and output devices (e.g., buttons, displays, timers, etc.).
+world through sensors and actuators (e.g., buttons, displays, timers, etc.).
 %
 These interactions are typically represented as input events flowing from the
 devices to the application and as output events flowing from the application to
@@ -215,21 +213,22 @@ through a documented API.
 As examples, Esterel~\cite{esterel.ieee91} relies on C for passing events
 between the environment and the running program~\cite{esterel.book.compiling},
 while Elm~\cite{frp.elm} uses the concept of \emph{ports}, which allows sending
-out values to JavaScript as commands and listening for values as
+out values to JavaScript in commands and listening for values in
 subscriptions~\cite{frp.elm.ports}.
 
+%This separation exposes the environment as a rigid system component that
+%evolves in separate from the application.
 The event-based separation between the application and the environment is
-arguably inevitable and happens at the right level of abstraction, since it
-connects the application with the operating system resources through a
+arguably inevitable and also happens at the right level of abstraction, since
+it connects the application with the operating system resources through a
 non-invasive API.
 %
-However, it involves two languages and the programmer may have to unnecessarily
-deal with multiple syntaxes, incompatible type systems, and different address
-spaces.
+However, it involves two languages and the programmer may have to deal with
+multiple syntaxes, incompatible type systems, and different address spaces.
 %
 Furthermore, in the context of embedded systems, a proper host OS may even be
-absent or lacking enough drivers, which requires more low-level intervention
-from the application.
+absent or lacking enough device drivers, which requires more low-level
+intervention from the application.
 
 In this work, we propose
 an interrupt handler primitive for a reactive language in
@@ -240,6 +239,9 @@ the structured reactive language \CEU and discuss how
 it synergizes with the structured paradigm to provide
 automatic standby for applications and hot swapping
 for drivers during runtime.
+
+We present two uses cases that take advantage of the tight integration between
+the language and environment:
 
 
 with different syntaxes and semantics.
