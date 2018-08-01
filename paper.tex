@@ -87,7 +87,6 @@
   keepspaces=true,
   keywordstyle=\bfseries,
   language=ceu,
-  mathescape=true,
   numbersep=4pt,
   numberstyle=\tiny,
   %xleftmargin=0.5cm,
@@ -111,7 +110,7 @@
 
 %% Title information
 \title{Where Do Events Come From?}
-\subtitle{Reactive Programming From The Ground Up}
+\subtitle{Reactive and Energy-Efficient Programming From The Ground Up}
 
 %% Author information
 %% Contents and number of authors suppressed with 'anonymous'.
@@ -453,8 +452,8 @@ and closes the loop.
 In the example, even if two packets arrive simultaneously in the environment,
 the synchronous model provides the atomicity and responsiveness guarantees:
     the first \code{await} will awake and turn the LED off atomically
-    (ln 12--13);
-    and the second \code{await} will awake in sequence (ln 14).
+    (ln~12--13);
+    and the second \code{await} will awake in sequence (ln~14).
 %
 %Note that if multiple trails in parallel await the same input, they will all
 %awake from it during the same reaction.
@@ -573,7 +572,7 @@ This guarantees that all reactions to the environment are computed in bounded
 time~\cite{ceu.lctes18}, ensuring that applications are always responsive to
 incoming events.
 
-\section{Interrupt Service Routines in \CEU}
+\subsection{Interrupt Service Routines}
 \label{sec.isrs}
 
 Interrupts service routines (ISRs) are software entry points that execute in
@@ -596,8 +595,9 @@ peripherals interacting with the external world.
 }
 \end{figure}
 
-Asynchronous execution confronts the synchronous mindset of \CEU since the
-assumption that reactions are atomic no longer holds.
+We propose to extend \CEU with asynchronous ISRs.
+However, asynchronous execution confronts the synchronous mindset of \CEU since
+the assumption that reactions are atomic no longer holds.
 Not only this may lead to race conditions at a fine grain, but may also affect
 the ordering of events at a coarse grain: the effect of an earlier event may be
 perceived after the effect of a later event.
@@ -618,12 +618,13 @@ as before.
   numbers=left,
   basicstyle=\ttfamily\small,
   float=t,
-  caption={XXX.},
+  caption={Synchronous application that turns the LED on whenever the button
+           is pressed and off whenever it is unpressed.},
   label={lst.gpio.sync},
   escapechar=\%,
 ]
-output high/low PIN_13;
-input  high/low PIN_02;
+output high/low PIN_13;     // connected to an LED
+input  high/low PIN_02;     // connected to a button
 #include "gpio.ceu"
 
 emit PIN_13(low);
@@ -638,7 +639,8 @@ end
   numbers=left,
   basicstyle=\ttfamily\small,
   float=t,
-  caption={XXX.},
+  caption={Asynchronous driver for GPIO which, on hardware interrupts, emits an
+           input event into a queue.},
   label={lst.gpio.async},
   escapechar=\%,
 ]
@@ -654,9 +656,8 @@ end
 input high/low PIN_02;
 {
     pinMode(2, INPUT_PULLUP);
-    EICRA = (EICRA & ~((1<<ISC00) | (1<<ISC01)))
-          | (CHANGE << ISC00);
-    EIMSK |= (1<<INT0);
+    EICRA |= (1 << ISC00);  // sets INT0
+    EIMSK |= (1 << INT0);   // turns on INT0
 }
 spawn async/isr [INT0_vect] do
     emit PIN_02({digitalRead(2)});
@@ -665,47 +666,471 @@ end
 
 Listing~\ref{lst.gpio.sync}~and~\ref{lst.gpio.async} implements an application
 that uses GPIO to link a button (pin 02) to an LED (pin 13) such that the LED
-is on whenever the button is pressed.
-%
+is on whenever the button is pressed and off whenever it is unpressed.
+
 The synchronous side (Listing~\ref{lst.gpio.sync}) declares its interface with
-the external world and includes the asynchronous side as a driver (ln 1--3).
-%
+the external world and includes the asynchronous side as a driver (ln~1--3).
+It then starts with the LED off (ln~5) and enters in a loop (ln~6--9) that,
+whenever the button changes (ln~7), changes the state of the LED with the new
+value (ln~8).
+
 The asynchronous side (Listing~\ref{lst.gpio.async}) implements the output and
 input events.
-
-An \code{output} implementation (ln 4--6) is similar to a parameterized
+%
+An \code{output} implementation (ln~4--6) is similar to a parameterized
 subroutine: whenever the application invokes \code{emit}, the output body
 executes atomically.
-\CEU supports inline C between curly braces (ln 3,5) with interpolation to
+\CEU supports inline C between curly braces (ln~3,5) with interpolation to
 evaluates \CEU expressions (e.g., \code{@v}).
 This allows drivers to take advantage of existing libraries in embedded
 toolchains, such as Arduino.
 %
-In the example, the driver sets pin 13 as output (ln 3) when it is included,
-and sets its state whenever it is emitted (ln 5).
-
+In the example, the driver sets pin 13 as output (ln~3) when it is included,
+and sets its state whenever it is emitted (ln~5).
+%
 An \code{input} event implementation requires an ISR registered with the
-\code{spawn async/isr} primitive (ln 17--19), which is automatically invoked
+\code{spawn async/isr} primitive (ln~16--18), which is automatically invoked
 whenever the associated interrupt occurs (e.g., \code{INT0\_vect}).
 %
-An ISR in \CEU will always have an \code{emit} to an input event inside its
+An ISR in \CEU will typically have an \code{emit} to an input event inside its
 body to awake the synchronous side.
 However, although the ISR executes asynchronously as soon as the interrupt
 occurs, the \code{emit} respects the semantics of \CEU and does not interrupt
-an ongoing reaction on the synchronous side.
+an ongoing reaction on the synchronous side (going into a queue to be
+discussed).
 %
 In the example, the input driver first configures pin 2 to behave as input and
-to generate an external interrupt on level transitions (ln 11--16).
+to generate an external interrupt on level transitions (ln~11--15).
 
-synchronous remains simple and well behaved
-with no low-level calls
+The example illustrates the clear separation between the application and the
+driver through an event-driven interface that reflects the desired architecture
+of Figures~\ref{fig.env}~and~\ref{fig.async}.
+%
+Now the whole application is written in \CEU:
+    the synchronous side remains well behaved with no low-level calls, and
+    the asynchronous side deals with all complexity in device drivers.
+%
+Nevertheless, drivers are typically write-once components developed by embedded
+specialists, which are reused in most applications.
+%
+Note that each architecture requires a mapping between the \code{async/isr} and
+the actual interrupt vector table, which we provide with our system.
 
+As we discuss in the next section, supporting ISRs in the same language and
+memory space of the application allows programmers to choose between efficiency
+and safety during development by providing (and experimenting with) multiple
+interfaces with different levels of abstraction.
 
+\subsection{Safe Shared-Memory Concurrency}
+\label{sec.ceu.shared}
 
+\begin{figure}[t!]
+\begin{minipage}[t]{0.50\linewidth}
+\begin{lstlisting}[
+  numbers=right,
+  xrightmargin=3em,
+  basicstyle=\ttfamily\small,
+  label={lst.mem.a},
+  caption={Shared \code{x}},
+  escapechar=\%,
+]
+input void A;
+input void B;
+var int x = 1;
+par/and do
+    await A;
+    x = x + 1;
+with
+    await B;
+    x = x * 2;
+end
+\end{lstlisting}
+\end{minipage}%
+%
+\begin{minipage}[t]{0.50\linewidth}
+%\begin{lstlisting}
+\begin{lstlisting}[
+  xleftmargin=3em,
+  basicstyle=\ttfamily\small,
+  label={lst.mem.b},
+  caption={Shared \code{y}},
+  escapechar=\%,
+]
+input void A;
+// (empty line)
+var int y = 1;
+par/and do
+    await A;
+    y = y + 1;
+with
+    await A;
+    y = y * 2;
+end
 
+\end{lstlisting}
+\hskip1.5em
+\begin{minipage}[t]{.9\columnwidth}
+\end{minipage}%
+\end{minipage}%
+%\rule{8.4cm}{0.37pt}
+\caption{
+Accesses to shared \code{x} never concurrent.
+Accesses to shared \code{y} are concurrent but still deterministic.},
+\label{lst.mem}
+\end{figure}
 
-The application only communicates
+In \CEU, when multiple trails awake in the same reaction, they execute in
+lexical order, i.e., in the order they appear in the program source code.
+%
+In Figure~\ref{lst.mem}, both examples define a shared variable (ln~3) and
+assign to it in parallel trails (ln~6, 9).
+%
+In Listing~\ref{lst.mem.a}, the two assignments to \code{x} can only execute in
+reactions to different events \code{A} and \code{B} (ln~5,8), which cannot
+occur simultaneously in accordance with the synchronous model.
+Hence, for the sequence of events \code{A->B}, \code{x} becomes
+\code{4}~(\code{(1+1)*2}), while for \code{B->A}, \code{x} becomes
+\code{3}~(\code{(1*2)+1}).
+In Listing~\ref{lst.mem.b}, the two assignments to \code{y} are simultaneous
+because they execute in reaction to the same event \code{A}.
+Nevertheless, because \CEU follows lexical order, the execution is still
+deterministic, and \code{y} always becomes \code{4} (\code{(1+1)*2}).
 
+Regardless of deterministic execution, note that an apparently innocuous change
+in the order of trails may modify the behavior of programs.
+%
+To mitigate this threat, \CEU performs concurrency checks at compile time to
+detect conflicting accesses to shared variables:
+if a variable is written in a trail segment, then a concurrent trail segment
+cannot access that variable~\cite{ceu.sensys13}.
+%
+The static checks are optional (or raise warnings) and do not affect the
+semantics of the language.
+
+\begin{lstlisting}[
+  xleftmargin=1em,
+  numbers=left,
+  basicstyle=\ttfamily\small,
+  float=t,
+  caption={The USART buffer is shared between the ISR and the application,
+           resulting in a pontential race condition.
+           \emph{(The driver and application code are in separate files.)}},
+  label={lst.usart},
+]
+// USART INTERFACE
+
+input none USART_RX;
+var[32*] byte rx_buf;             // `*' = circular
+
+// DRIVER
+
+spawn async/isr [USART_RX_vect] do
+    rx_buf = rx_buf .. [{UDR0}];
+    emit USART_RX;
+end
+
+// APPLICATION
+
+loop do
+    await USART_RX;
+    var int i;
+    loop i in [0 -> $rx_buf[ do   // `$' = length ($)
+        // uses rx_buf[i]
+    end
+    $rx_buf = 0;
+end
+\end{lstlisting}
+
+The addition of asynchronous ISRs poses real threats concerning race conditions
+in programs since interrupts occur at arbitrary points.
+%
+Listing~\ref{lst.usart} illustrates a minimum USART application (ln~13--22)
+that consumes incoming bytes (ln~18--21) as they arrive (ln~16).
+%
+The USART API (ln~1--4) exposes an input event to signal incoming data (ln~3)
+and a circular buffer to avoid missing data (ln~4).
+The buffer is indispensable because the microcontroller cannot cope with the
+USART speed.
+%
+The driver ISR (ln~6--11) simply appends incoming bytes to the end of the
+buffer (ln~9) and signal the application (ln~10).
+%
+As a possible race condition, note that the ISR may fire and append a new byte
+to the buffer (ln~9) just before the application clears it (ln~21), in which
+case the new byte will be lost forever.
+
+\CEU treats an \code{async/isr} as a block of code that runs in parallel with
+the rest of the program (hence the required prefix \code{spawn}).
+%
+This way, it is clear for the compiler that the accesses to \code{rx\_buf} in
+Listing~\ref{lst.usart} may lead to a race condition (ln~9,21), and \CEU raises
+a compile-time error.
+%
+The programmer is responsible to protect concurrent memory accesses with
+\code{atomic} blocks, which disables interrupts (supposedly) for a short period
+of time.
+
+\begin{lstlisting}[
+  xleftmargin=1em,
+  numbers=left,
+  basicstyle=\ttfamily\small,
+  float=t,
+  caption={The USART driver now exposes a safer (and more friendly) interface
+           to the application.
+           \emph{(The driver and application code are in separate files.)}},
+  label={lst.usart.code},
+]
+// USART INTERFACE
+
+code Usart_RX (var&[] byte buf, var int n) -> none;
+
+// DRIVER
+
+input none USART_RX;
+var[32*] byte rx_buf;
+
+spawn async/isr [USART_RX_vect] do
+    rx_buf = rx_buf .. [{UDR0}];
+    emit USART_RX;
+end
+
+code Usart_RX (var&[] byte buf, var int n) -> none
+do
+    loop do
+        atomic do
+            buf = buf..rx_buf;
+            $rx_buf = 0;
+        end
+        if $buf >= n then
+            break;
+        end
+        await USART_RX;
+    end
+end
+
+// APPLICATION
+
+loop do
+    var[255] byte buf;
+    await Usart_RX(&buf, 10);
+    // uses buf
+end
+\end{lstlisting}
+
+Even so, we do not expect that application programmers are required to resolve
+race conditions.
+\CEU supports reactive abstractions (similar to coroutines) that help hiding
+the concurrency complexity inside the driver.
+%
+Listing~\ref{lst.usart.code} changes the USART API (ln 1--3) to expose a code
+abstraction that expects a reference to a buffer and a number of bytes to
+receive.
+Now, the application (ln~29--35) invokes the abstraction (ln~33) with a local
+buffer (ln~32).
+%
+The driver (ln~5--27) now hides the low level interface of the previous example
+(ln~7--8) and implements the code abstraction (ln~15--27) that protects the
+access to the shared buffer with an \code{atomic} block (ln~18--21).
+%
+The abstraction copies the driver buffer into the application buffer (ln~19)
+until the receiving the request number of bytes (ln~22).
+%
+On the one hand the extra copying incurs an overhead, but on the other hand it
+prevents race conditions with the ISR.
+
+\subsection{Energy-Efficient Runtime}
+\label{sec.energy}
+
+\begin{lstlisting}[
+  xleftmargin=1em,
+  numbers=left,
+  basicstyle=\ttfamily\small,
+  float=t,
+  caption={XXX.},
+  label={lst.env},
+]
+evt_t queue[MAX];           // input queue
+void main () {
+  ceu_start();              // "boot reaction"
+  while (1) {
+    evt_t evt;
+    if (ceu_input(&evt)) {  // query input queue
+      ceu_sync(&evt);       // execute synchronous
+    } else {
+      ceu_pm_sleep();       // nothing to execute
+    }
+  }
+}
+\end{lstlisting}
+
+Our runtime of \CEU implements the event loop proposed in
+Figure~\ref{fig.async}, which alternates between synchronous, well-behaved
+execution, and asynchronous ISRs.
+%
+Since the language now has full control over the event loop and only executes
+from interrupts, we want the runtime to enter in sleep mode automatically to
+save energy.
+
+Listing~\ref{lst.env} is a realization of this architecture:
+%
+The runtime defines an input queue (ln~1) in which ISRs enqueue new events
+(e.g., Listing~\ref{lst.usart.code}, ln~12).
+%
+In the \code{main} function, we first generate the \emph{boot reaction} (ln~3),
+which starts the program to spawn the ISRs and reach the first \code{await}
+statements in the multiple lines of code.
+%
+Then, the runtime enters an infinite loop (ln~4--11) that queries the input
+queue (ln~6) to awake the program (ln~7).
+%
+Note that ISRs execute asynchronously with the loop, but they typically only
+emit an input event into the queue which will be queried in a subsequent
+iteration.
+%
+Note also that if the queue is empty, the runtime enters in sleep mode to save
+energy (ln~9), and will only awake on a new hardware interrupt.
+
+Microcontrollers typically support multiple levels of sleep mode, each
+progressively saves more energy at the expense of keeping less functionality
+active.
+%
+As an example, the least efficient mode of the \emph{ATmega328P} allows for
+timer interrupts since it keeps its internal clock active, while the most
+efficient mode turns off all peripherals and can only awake from external
+interrupts.
+
+Our runtime supports three compile-time configurations for \code{ceu\_pm\_sleep}
+(ln~9):
+%
+The first configuration is a \emph{nop} which simply keeps the event loop
+running all the time without ever sleeping.
+This configuration is useful when introducing new platforms.
+%
+The second configuration chooses a (inefficient) sleep mode that keeps all
+peripherals active.
+Although this configuration is not the most energy efficient, at least, it
+requires no extra assistance from the drivers.
+%
+The third configuration keeps a bit vector of the active drivers during runtime
+and chooses the most efficient mode, querying the vector every time
+\code{ceu\_pm\_sleep} is called.
+
+\begin{lstlisting}[
+  xleftmargin=1em,
+  numbers=left,
+  basicstyle=\ttfamily\small,
+  float=t,
+  caption={XXX.
+           \emph{(The power manager, driver and application code are in separate files.)}},
+  label={lst.pm},
+  escapechar=\%,
+]
+// POWER MANAGER (in C)
+
+enum {
+    CEU_PM_ADC,
+    CEU_PM_TIMER1,
+    CEU_PM_USART,
+    ...
+};
+
+void ceu_pm_sleep (void) {
+    if (ceu_pm_get(CEU_PM_USART) || ...) {
+        sleep_mode_1(...);
+    } else if (ceu_pm_get(CEU_PM_ADC)) {
+        sleep_mode_2(...);
+    } else {
+        sleep_mode_3(...);
+    }
+}
+
+// USART DRIVER (in Ceu)
+
+code Usart_RX (var&[] byte buf, var int n) -> none
+do
+    {ceu_pm_set(CEU_PM_USART, 1);}
+    do finalize with
+        {ceu_pm_set(CEU_PM_USART, 0);}
+    end
+    ...   // same as in Listing 7
+end
+
+// APPLICATION (in Ceu)
+
+input high/low PIN_02;      // connected to a button
+loop do
+    par/or do
+        await PIN_02;
+    with
+        var[255] byte buf;
+        await Usart_RX(&buf, 10);
+        // uses buf
+    end
+    await PIN_02;
+end
+\end{lstlisting}
+
+The third configuration achieves optimal efficiency but requires a tight
+interaction between the drivers and the power management runtime.
+%
+Listing~\ref{lst.pm} unveils the power manager (ln~1--18), the modified USART
+driver (ln~20--29), and an illustrative application (ln~31--43).
+%
+The application is a loop that awaits in parallel for a button press (ln~36) or
+receiving 10 bytes (ln~39).
+Let's call this initial state \code{STATE-A}.
+The \code{par/or} terminates when either of them occurs, going to the next line
+that awaits another button click (ln~42).
+Let's call this other state \code{STATE-B}.
+After the button click, the program loops back to \code{STATE-A}.
+%
+While in \code{STATE-A}, the program can awake from USART and external
+interrupts, which means that the power manager should choose a sleep mode in
+which the USART remains operational.
+%
+While in \code{STATE-B}, only external interrupts should awake the program,
+which menas that the power manager may use the most efficient sleep mode.
+%
+The power manager enumerates all microcontroller's peripherals (ln~3--8) and,
+before sleeping, queries their states (ln~11,13) to choose the most appropriate
+sleep mode (ln~12,14,16).
+%
+The USART driver needs to be extended with calls to enable and disable the
+USART state inside the power manager: just before awaiting, the driver enables
+the USART (ln~24) and registers a finalization block to unregister it on
+termination (ln~25--27).
+Termination may occur either directly after receiving the requested number of
+bytes, or indirectly if the \code{par/or} in the application terminates on a
+button click (ln~36).
+
+Note that applications need not to be explicit about energy management to take
+advantage of sleep modes.
+All happens automatically because of the synchronous-reactive execution model
+and energy-aware runtime of \CEU.
+
+\section{Related Work}
+
+- TinyOS
+    - async, race condition avoidance
+        - nesc manual
+    - ICEM, standby
+        - icem paper
+
+- CRP
+
+- finalize
+- structured programming
+    - lexical scoping vs manual
+    - no turn off
+
+- citar ICEM o mais cedo nas duas ocasioes (async, energy)
+- citar TOS/ICEM na introducao como maior influencia
+    - ja no abstract?
+
+- falar que async/isr nao contem nada de Ceu, apenas shared memory e nocao de estar em paralelo
+    - compartilhamento de memoria
+        - velocidade
+    - ajuda do compilador p/ detectar acesso concorrente
 
 - finite is can be still much greater than 0 (order of milliseconds)
     - which is a lot of time
