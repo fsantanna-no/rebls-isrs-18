@@ -184,7 +184,7 @@ the very central concept of events is implemented externally to the reactive
 language.
 %
 In this work, we propose an interrupt handler primitive for a reactive language
-targeting embedded systems in order to take control of the whole event loop,
+targeting embedded systems in order to take control of the whole event loop:
 from a sensor input source and back to an actuator output.
 %
 We propose the new asynchronous primitive in the context of the synchronous
@@ -227,14 +227,15 @@ for applications.
 \section{Introduction}
 
 Reactive applications interact continuously and in real time with the external
-world through sensors and actuators (e.g., buttons, displays, timers, etc.).
+world through sensors and actuators peripherals (e.g., buttons, displays,
+timers, etc.).
 %
 These interactions are typically represented as input events flowing from the
-devices to the application and as output events flowing from the application to
-the devices.
+peripherals to the application and as output events flowing from the
+application to the peripherals.
 %
-As illustrated in Figure~\ref{fig.env}, devices can be encapsulated as a
-single component, \emph{the environment}, which controls the system execution
+As illustrated in Figure~\ref{fig.env}, all peripherals can be encapsulated as
+a single component, \emph{the environment}, which controls the system execution
 in an event loop:
 the application sits idle waiting for an input;
 the environment awakes the application on the occurrence of an input;
@@ -263,8 +264,8 @@ out values to JavaScript in commands and listening for values in
 subscriptions~\cite{frp.elm.ports}.
 
 The event-based interface between the application and the environment is
-arguably inevitable and also happens at the right level of abstraction, since
-it connects the application with the operating system resources through a
+arguably inevitable and also happens at the appropriate layer, since it
+connects the application with the operating system resources through a
 non-invasive API.
 %
 However, this separation exposes the environment as a rigid system component
@@ -279,8 +280,8 @@ intervention from the application.
 
 In this work, we propose interrupt service routines (ISRs) as an asynchronous
 primitive for the synchronous language \CEU~\cite{ceu.sensys13}.
-ISRs empower applications to also implement their own device drivers and
-self-generate inputs, bypassing the need for a host environment.
+ISRs empower reactive applications to also implement their own device drivers
+and self-generate inputs, bypassing the need for a host environment.
 %
 \CEU targets resource-constrained architectures, such as Arduino-compatible
 microcontrollers, in which applications run in the bare metal, without
@@ -292,17 +293,20 @@ The lack of an OS opens an opportunity to explore a tighter integration between
 the application and its device drivers at the language level, resulting in an
 overall simplicity and tractability of the system.
 %
-In particular, \CEU is amenable to a simple static analysis to detect race
-conditions that we extended to encompass ISRs.
+In particular, \CEU is already amenable to a simple static analysis to detect
+race conditions which we extended to also encompass ISRs.
+Applications can share data buffers with drivers to avoid unnecessary copying,
+with the static guarantee that no data races will occur.
 %
 \CEU also provides a lexical finalization mechanism that we adopt in drivers to
-properly disable interrupts.
+properly disable interrupts and turn off peripherals completely.
+For instance, we can delimit the scope of a driver similarly to a
+lexically-scoped variables.
 %
 Finally, the synchronous semantics of \CEU enforces that applications react
 to inputs in bounded time and remain in an idle states susceptible to standby.
-With the help of drivers and a power management runtime, \CEU can put the
-microcontroller to sleep automatically at optimal sleeping modes after each
-input reaction.
+With the help of drivers and a power manager, we can put the microcontroller to
+sleep automatically at optimal sleeping modes after each input reaction.
 
 We implemented an extensible runtime that exposes hooks for the interrupts and
 the power manager, which we validated in two microcontrollers: an
@@ -311,22 +315,10 @@ the power manager, which we validated in two microcontrollers: an
 We also implemented drivers for a variety of peripherals, such as GPIO, A/D
 converter, USART, SPI, and nRF24L01 transceiver.
 %
-Applications can share data buffers with drivers to avoid unnecessary copying,
-with the static guarantee that no data races will occur.
-%
-We demonstrate that applications built on top of these drivers show significant
-energy savings due to automatic standby.
+The applications built on top of these drivers show significant energy savings
+due to automatic standby.
 
 TODO: weakness
-
-what would be
-
-output (int,int) O;
-
-becomes
-
-output (int x, int y) O do
-end
 
 \begin{comment}
 % Esterel
@@ -362,16 +354,16 @@ remain idle and react to the occurrence of events
 \section{\CEU: Structured Synchronous Reactive Programming}
 \label{sec.ceu}
 
-\CEU is a Esterel-based~\cite{ceu.tecs17} reactive programming language
-targeting resource-constrained embedded systems~\cite{ceu.sensys13}, with the
+\CEU~\cite{ceu.sensys13} is a Esterel-based~\cite{ceu.tecs17} reactive
+programming language targeting resource-constrained embedded systems, with the
 characteristics that follow:
 %
 \begin{description}
 \item [Reactive:] code only executes in reactions to events and is idle most of
     the time.
 \item [Structured:] programs use lexically-scoped structured control
-    mechanisms, such as \code{await} (to suspend a line of execution), and
-    \code{par} (to combine multiple lines of execution).
+    mechanisms such as \code{spawn} and \code{await} (to create and suspend
+    lines of execution).
 \item [Synchronous:] reactions run atomically and to completion on each line of
     execution, i.e., there's no implicit preemption or real parallelism.
 \end{description}
@@ -408,9 +400,8 @@ with
 end
 \end{lstlisting}
 
-The example in Listing~\ref{lst.ceu} illustrates the main characteristics of
-\CEU, namely event-driven I/O, lexically-scoped compositions and synchronous
-execution.
+Listing~\ref{lst.ceu} illustrates the main characteristics of \CEU, namely
+event-driven I/O, lexically-scoped compositions, and synchronous execution.
 %
 The program toggles the state of the LED whenever a radio packet is received,
 terminating on a button press, always with the LED off.
@@ -425,10 +416,9 @@ execution, aka \emph{trails}, in parallel:
 a single-statement trail that waits for a button press before terminating
 (ln~5), and an endless loop that toggles the LED on and off whenever a radio
 packet is received (ln~10--15).
-Since we care about any reception occurrence, the example ignores the actual
-packet payload (ln~12,14).
 The \code{finalize} clause (ln~7--9) ensures that, no matter how its enclosing
-trail terminates, the LED will be unconditionally turned off~(ln~8).
+trail terminates (e.g., from a button press), the LED will be unconditionally
+turned off~(ln~8).
 
 All communication between the application and the environment is done through
 the \code{await} and \code{emit} primitives, which awaits an input event and
@@ -440,18 +430,18 @@ also automatically finalizes the other trail(s).
 %
 In the example, when the button is pressed, not only the toggling loop will be
 aborted, but the \code{finalize} clause will turn the LED off unconditionally,
-since its enclosing block went out of scope.
+since its enclosing block goes out of scope.
 
 The synchronous execution model of \CEU dictates that reactions to input events
 are atomic and that incoming events are never lost.
 %
-The event loop in Figure~\ref{fig.env} indicates this behavior since the
+The event loop in Figure~\ref{fig.env} suggests this behavior since the
 environment can only generate a new input after the application yields control
 and closes the loop.
 %
 In the example, even if two packets arrive simultaneously in the environment,
-the synchronous model provides the atomicity and responsiveness guarantees:
-    the first \code{await} will awake and turn the LED off atomically
+the synchronous model ensures atomicity and responsiveness:
+    the first \code{await} awakes and turns the LED off atomically
     (ln~12--13);
     and the second \code{await} will awake in sequence (ln~14).
 %
@@ -463,24 +453,25 @@ the synchronous model provides the atomicity and responsiveness guarantees:
 
 Figure~\ref{fig.ticks} illustrates the synchronous execution model of \CEU.
 %
-The continuous timeline in the environment shows an absolute reference clock
-with ``physical timestamps'' for the event occurrences (e.g., event~\code{C}
-occurs at 17ms521us).
+The continuous timeline (representing the environment) shows
+``physical timestamps'' for the event occurrences (e.g., event~\code{C}
+occurs exactly at 17ms521us).
 %
 The discrete timeline in the application shows how the same occurring events
 fit in the logical notion of time of \CEU.
 %
-The boot reaction \code{boot-0} happens before any input, at program startup.
+The boot reaction \code{boot-0} happens before any input and starts the
+program.
 %
 Event~\code{A} ``physically'' occurs during \code{boot-0} but, because time
-is discrete, its corresponding reaction only executes afterwards, at logical
+is discrete, its corresponding reaction only executes at logical
 instant~\code{A-1}.
 %
 Similarly, event~\code{B} occurs during~\code{A-1} and its reaction is
 postponed to execute at~\code{B-2}.
 %
 Event~\code{C} also occurs during~\code{A-1} but its reaction must also wait
-for~\code{B-2} to execute and so it is postponed to execute at~\code{C-3}.
+for~\code{B-2} to execute at~\code{C-3}.
 %
 Finally, event~\code{D} occurs during an idle period and can start immediately
 at \code{D-4}.
@@ -720,6 +711,46 @@ As we discuss in the next section, supporting ISRs in the same language and
 memory space of the application allows programmers to choose between efficiency
 and safety during development by providing (and experimenting with) multiple
 interfaces with different levels of abstraction.
+
+- TODO adc
+
+\begin{lstlisting}[
+  xleftmargin=1em,
+  numbers=left,
+  basicstyle=\ttfamily\small,
+  float=t,
+  caption={XXX.},
+  label={lst.gpio.async},
+  escapechar=\%,
+]
+// A/D DRIVER (adc.ceu)
+
+output int ADC_REQUEST;
+input  int ADC_DONE;
+
+do finalize with
+  {
+    ADCSRA &= B01111111;  // disables A/D converter
+    ACSR    = B10000000;  // disables comparator
+    DIDR0  |= B00111111;  // disables pins
+  }
+end
+
+...     // driver implementation
+
+// APPLICATION
+
+loop do
+    var int v;
+    do
+        #include "adc.ceu"
+        emit ADC_REQUEST(A0);
+        v = await ADC_DONE;
+    end
+    ...     // uses v
+    await 1h;
+end
+\end{lstlisting}
 
 \subsection{Safe Shared-Memory Concurrency}
 \label{sec.ceu.shared}
