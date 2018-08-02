@@ -568,11 +568,11 @@ incoming events.
 
 Interrupts service routines (ISRs) are software entry points that execute in
 response to hardware interrupts from peripherals such as timers and GPIOs.
-ISRs are at the lowest level interface between hardware and software and are
-the absolute source of inputs to programs.
+ISRs are at the lowest interface layer between the hardware and software and
+are the absolute source of inputs to programs.
 %
-Typically, an ISR starts to execute as soon as the hardware interrupt occurs
-and suspends the normal program flow abruptly.
+An ISR starts to execute as soon as the hardware interrupt occurs, suspending
+the ongoing program flow abruptly.
 Such asynchronous behavior reflects the inherent concurrent nature of
 peripherals interacting with the external world.
 
@@ -593,14 +593,13 @@ Not only this may lead to race conditions at a fine grain, but may also affect
 the ordering of events at a coarse grain: the effect of an earlier event may be
 perceived after the effect of a later event.
 %
-Nevertheless, our goal is to preserve the well-behaved interaction between the
-\CEU application and the environment as of Figure~\ref{fig.env}, even in the
-presence of asynchronous ISRs as illustrated in Figure~\ref{fig.async}:
+Still, our goal is to preserve the well-behaved interaction between the \CEU
+application and the environment even in the presence of asynchronous ISRs.
+Figure~\ref{fig.async} adapts the event loop of Figure~\ref{fig.env} to fit all
+inside the same \CEU application, now with the original application represented
+as the synchronous side and the environment as the asynchronous side.
 %
-the original application is now represented by the synchronous \CEU and the
-environment by the asynchronous \CEU, all inside the same application.
-%
-This way, we want to push all subtleties of asynchronous execution into device
+Our idea is to push all subtleties of asynchronous execution into device
 drivers which emit input events to regular synchronous code in \CEU exactly
 as before.
 
@@ -655,51 +654,51 @@ spawn async/isr [INT0_vect] do
 end
 \end{lstlisting}
 
-Listing~\ref{lst.gpio.sync}~and~\ref{lst.gpio.async} implements an application
-that uses GPIO to link a button (pin 02) to an LED (pin 13) such that the LED
-is on whenever the button is pressed and off whenever it is unpressed.
+As a first example, Listing~\ref{lst.gpio.sync}~and~\ref{lst.gpio.async} uses
+GPIOs to virtually connect a button (pin 02) to an LED (pin 13) such that the
+LED is on whenever the button is pressed and off whenever it is unpressed.
 
-The synchronous side (Listing~\ref{lst.gpio.sync}) declares its interface with
-the external world and includes the asynchronous side as a driver (ln~1--3).
+Listing~\ref{lst.gpio.sync}, the synchronous side, first declares its interface
+with the external world and includes the asynchronous side as a driver
+(ln~1--3).
 It then starts with the LED off (ln~5) and enters in a loop (ln~6--9) that,
 whenever the button changes (ln~7), changes the state of the LED with the new
 value (ln~8).
 
-The asynchronous side (Listing~\ref{lst.gpio.async}) implements the output and
+Listing~\ref{lst.gpio.async}, the asynchronous side, implements the output and
 input events.
 %
 An \code{output} implementation (ln~4--6) is similar to a parameterized
 subroutine: whenever the application invokes \code{emit}, the output body
 executes atomically.
-\CEU supports inline C between curly braces (ln~3,5) with interpolation to
-evaluates \CEU expressions (e.g., \code{@v}).
+\CEU supports inline C between curly braces (ln~3,5) and interpolation to
+evaluate \CEU expressions (e.g., \code{@v}).
 This allows drivers to take advantage of existing libraries in embedded
 toolchains, such as Arduino.
 %
-In the example, the driver sets pin 13 as output (ln~3) when it is included,
-and sets its state whenever it is emitted (ln~5).
+In the example, when the driver is included, it configures pin 13 as output
+(ln~3) and sets its state whenever \code{PIN\_13} is emitted (ln~5).
 %
-An \code{input} event implementation requires an ISR registered with the
+An \code{input} event implementation uses an ISR registered with the
 \code{spawn async/isr} primitive (ln~16--18), which is automatically invoked
 whenever the associated interrupt occurs (e.g., \code{INT0\_vect}).
 %
-An ISR in \CEU will typically have an \code{emit} to an input event inside its
-body to awake the synchronous side.
-However, although the ISR executes asynchronously as soon as the interrupt
-occurs, the \code{emit} respects the semantics of \CEU and does not interrupt
-an ongoing reaction on the synchronous side (going into a queue to be
-discussed).
+An ISR in \CEU will typically emit an input event inside its body to awake the
+synchronous side (ln~17).
+However, although the ISR executes asynchronously when the interrupt occurs,
+the \code{emit} goes into a queue (to be discussed) and does not interrupt the
+ongoing (suspended) reaction on the synchronous side.
 %
-In the example, the input driver first configures pin 2 to behave as input and
-to generate an external interrupt on level transitions (ln~11--15).
+In the example, the input driver also configures pin 2 to behave as input and
+to generate external interrupts on level transitions (ln~11--15).
 
 The example illustrates the clear separation between the application and the
 driver through an event-driven interface that reflects the desired architecture
 of Figures~\ref{fig.env}~and~\ref{fig.async}.
 %
-Now the whole application is written in \CEU:
+Now, the whole application is written in \CEU:
     the synchronous side remains well behaved with no low-level calls, and
-    the asynchronous side deals with all complexity in device drivers.
+    the asynchronous side deals with all complexity of device drivers.
 %
 Nevertheless, drivers are typically write-once components developed by embedded
 specialists, which are reused in most applications.
@@ -709,10 +708,8 @@ the actual interrupt vector table, which we provide with our system.
 
 As we discuss in the next section, supporting ISRs in the same language and
 memory space of the application allows programmers to choose between efficiency
-and safety during development by providing (and experimenting with) multiple
-interfaces with different levels of abstraction.
-
-- TODO adc
+and safety during development by providing multiple interfaces with different
+levels of abstraction.
 
 \begin{lstlisting}[
   xleftmargin=1em,
@@ -720,37 +717,56 @@ interfaces with different levels of abstraction.
   basicstyle=\ttfamily\small,
   float=t,
   caption={XXX.},
-  label={lst.gpio.async},
+  label={lst.adc},
   escapechar=\%,
 ]
 // A/D DRIVER (adc.ceu)
 
-output int ADC_REQUEST;
-input  int ADC_DONE;
+  output int ADC_REQUEST;
+  input  int ADC_DONE;
 
-do finalize with
-  {
-    ADCSRA &= B01111111;  // disables A/D converter
-    ACSR    = B10000000;  // disables comparator
-    DIDR0  |= B00111111;  // disables pins
-  }
-end
+  do finalize with
+    {
+      ADCSRA &= B01111111;  // disables A/D converter
+      ACSR    = B10000000;  // disables comparator
+      DIDR0  |= B00111111;  // disables pins
+    }
+  end
+  ...     // driver initialization
+  ...     // input / output implementations
 
-...     // driver implementation
+// APPLICATION (main.ceu)
 
-// APPLICATION
-
-loop do
+  loop do
     var int v;
     do
-        #include "adc.ceu"
-        emit ADC_REQUEST(A0);
-        v = await ADC_DONE;
+      #include "adc.ceu" // driver contents above
+      emit ADC_REQUEST(A0);
+      v = await ADC_DONE;
     end
-    ...     // uses v
+    ...                  // uses sensor value "v"
     await 1h;
-end
+  end
 \end{lstlisting}
+
+The example in Listing~\ref{lst.adc} illustrates the use of a lexically-scoped
+driver for the A/D converter.
+Note that the driver (ln~1--14) and application (ln~16--27) are actually in
+separate files.
+%
+The application is a typical periodic sensor sampling loop, but which
+designates an explicit \code{do--end} scope to execute the driver (ln~21) and
+use it (ln~22--23).
+%
+The driver specifies a finalization code (ln~6--12) which executes
+unconditionally whenever it goes out of scope (ln~24).
+This code completely disables all A/D functionality, saving energy.
+%
+As discussed for Listing~\ref{lst.ceu}, finalizers also execute due to
+\code{par/or} termination (or other abortion mechanisms of \CEU).
+%
+Note that the driver interface (ln~3--4) is visible only inside the block and
+thus cannot be inadvertently used outside it.
 
 \subsection{Safe Shared-Memory Concurrency}
 \label{sec.ceu.shared}
