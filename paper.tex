@@ -340,17 +340,6 @@ Architecture section. Sending values out to JS is a command. Listening for
 values coming in from JS is a subscription. Pretty neat!
 \end{comment}
 
-- excel define formulas for input but not the input itself
-
-output -> input
-
-the environment sits
-    inverse
-    reacts to output and generates inputs
-
-remain idle and react to the occurrence of events 
-
-
 \section{\CEU: Structured Synchronous Reactive Programming}
 \label{sec.ceu}
 
@@ -426,11 +415,15 @@ generates an output event, respectively.
 
 The \code{par/or}, which stands for \emph{parallel-or}, is a lexical
 composition that terminates as soon as one of the trails terminates, but which
-also automatically finalizes the other trail(s).
+also automatically aborts and finalizes the other trail(s).
 %
 In the example, when the button is pressed, not only the toggling loop will be
 aborted, but the \code{finalize} clause will turn the LED off unconditionally,
 since its enclosing block goes out of scope.
+%
+The \code{par/or} is regarded as an \emph{orthogonal preemption
+primitive}~\cite{esterel.preemption} because the trails need not to be tweaked
+in order to affect each other.
 
 The synchronous execution model of \CEU dictates that reactions to input events
 are atomic and that incoming events are never lost.
@@ -563,7 +556,7 @@ This guarantees that all reactions to the environment are computed in bounded
 time~\cite{ceu.lctes18}, ensuring that applications are always responsive to
 incoming events.
 
-\subsection{Interrupt Service Routines}
+\subsection{Lexically-Scoped Interrupt Service Routines}
 \label{sec.isrs}
 
 Interrupts service routines (ISRs) are software entry points that execute in
@@ -760,10 +753,10 @@ use it (ln~22--23).
 %
 The driver specifies a finalization code (ln~6--12) which executes
 unconditionally whenever it goes out of scope (ln~24).
-This code completely disables all A/D functionality, saving energy.
+This code completely disables all A/D functionality to save energy.
 %
-As discussed for Listing~\ref{lst.ceu}, finalizers also execute due to
-\code{par/or} termination (or other abortion mechanisms of \CEU).
+As discussed for Listing~\ref{lst.ceu}, the finalizer would also sensibly
+execute due to a \code{par/or} termination enclosing the driver.
 %
 Note that the driver interface (ln~3--4) is visible only inside the block and
 thus cannot be inadvertently used outside it.
