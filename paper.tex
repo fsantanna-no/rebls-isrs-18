@@ -230,6 +230,9 @@ for applications.
 
 \section{Introduction}
 
+%TODO: energy savings
+%TODO: timers (mux, many impls, energy)
+
 Reactive applications interact continuously and in real time with the external
 world through hardware peripherals such as sensors and actuators (e.g.,
 buttons, displays, timers, etc.).
@@ -320,8 +323,8 @@ power manager, which we validated in two microcontrollers: an
 We also implemented drivers for a variety of peripherals, such as GPIO, A/D
 converter, USART, SPI, and nRF24L01 transceiver.
 %
-The applications built on top of these drivers show significant energy savings
-due to automatic standby.
+The applications built on top of these drivers show optimal energy savings due
+to automatic standby.
 
 Our work is largely inspired by TinyOS~\cite{wsn.tos}, a low-power OS for
 wireless devices, which also provides asynchronous events with a compile-time
@@ -1161,8 +1164,17 @@ Note that applications need not to be explicit about energy management to take
 advantage of sleep modes.
 All happens automatically because of the synchronous-reactive execution model
 and energy-aware runtime of \CEU.
+Figure~\ref{fig.energy} shows our initial tests with five existing C/Arduino
+applications rewritten in \CEU.
 
-TODO: energy savings
+\begin{figure}
+\centering
+\includegraphics[width=\linewidth]{energy}
+\caption{ Energy consumption in \emph{mA} for five existing C/Arduino
+          applications rewritten in \CEU.
+\label{fig.energy}
+}
+\end{figure}
 
 \section{Related Work}
 
@@ -1195,6 +1207,7 @@ responsible for aborting the ongoing unnecessary operations.
 \CEU relies on the \code{par/or} and \code{finalize} structured mechanisms to
 manage resources automatically.
 
+\begin{comment}
 - CRP
 
 - finalize
@@ -1219,6 +1232,7 @@ manage resources automatically.
 - shim
 
 - electre
+\end{comment}
 
 %% Acknowledgments
 \begin{acks}                            %% acks environment is optional
