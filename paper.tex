@@ -323,7 +323,14 @@ converter, USART, SPI, and nRF24L01 transceiver.
 The applications built on top of these drivers show significant energy savings
 due to automatic standby.
 
-TODO: weakness
+Our work is largely inspired by TinyOS~\cite{wsn.tos}, a low-power OS for
+wireless devices, which also provides asynchronous events with a compile-time
+data race detector~\cite{wsn.nesc}, and automatic energy management triggered
+from idle CPU states~\cite{wsn.icem}.
+%
+We adapted these ideas to the structured reactive programming model of \CEU,
+and refined them with stronger guarantees due to lexical scope and automatic
+finalization.
 
 \begin{comment}
 % Esterel
@@ -1155,13 +1162,38 @@ advantage of sleep modes.
 All happens automatically because of the synchronous-reactive execution model
 and energy-aware runtime of \CEU.
 
+TODO: energy savings
+
 \section{Related Work}
 
-- TinyOS
-    - async, race condition avoidance
-        - nesc manual
-    - ICEM, standby
-        - icem paper
+Our work is largely inspired by TinyOS~\cite{wsn.tos} and its companion
+language nesC~\cite{wsn.nesc}, which is a callback-driven dialect of C.
+%
+By default, callbacks are synchronous but can be annotated as \code{async} when
+triggered directly from interrupts.
+In this case, a static data-race detector ensures that concurrent accesses are
+protected by atomic sections.
+%
+Since the TinyOS runtime is also based on an event loop, it can easily detect
+idle periods and put the CPU to sleep.
+Device drivers also cooperate with the runtime to designate the best sleep
+mode~\cite{wsn.icem}.
+
+In comparison to nesC, our proposal takes advantage of the structured
+mechanisms of \CEU to offer even stronger guarantees.
+%
+For instance, nesC cannot provide a safe abortion mechanism, since the notion
+of control flow is entirely dynamic, typically encoded inside ordinary global
+variables that represent state machines.
+%
+For this reason, some manual bookkeeping is required to avoid that resources
+eventually leak (e.g., memory or energy).
+As an example, if the result of a long chain of split-phase I/O is no longer
+required due to a cancellation event, the cancellation callback is itself
+responsible for aborting the ongoing unnecessary operations.
+%
+\CEU relies on the \code{par/or} and \code{finalize} structured mechanisms to
+manage resources automatically.
 
 - CRP
 
@@ -1182,6 +1214,12 @@ and energy-aware runtime of \CEU.
 - finite is can be still much greater than 0 (order of milliseconds)
     - which is a lot of time
 
+- artigo synchronous languages
+
+- shim
+
+- electre
+
 %% Acknowledgments
 \begin{acks}                            %% acks environment is optional
                                         %% contents suppressed with 'anonymous'
@@ -1199,15 +1237,6 @@ and energy-aware runtime of \CEU.
   National Science Foundation.
 \end{acks}
 
-
-%% Bibliography
 \bibliography{my,other}
-
-
-%% Appendix
-\appendix
-\section{Appendix}
-
-Text of appendix \ldots
 
 \end{document}
