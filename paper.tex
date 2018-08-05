@@ -241,7 +241,8 @@ These interactions are typically represented in software as input events
 flowing from the peripherals to the application and as output events flowing
 from the application to the peripherals.
 %
-As illustrated in Figure~\ref{fig.env}, peripherals can be encapsulated as a
+%As illustrated in Figure~\ref{fig.env},
+Peripherals can be encapsulated as a
 single component, \emph{the environment}, which connects with the application
 in an event loop:
 the application sits idle until the environment awakes it on the occurrence of
@@ -250,6 +251,7 @@ the application reacts to the input and generates back one or more outputs
 which affect the environment;
 the application becomes idle and the loop restarts.
 
+\begin{comment}
 \begin{figure}
 \centering
 \includegraphics[width=\linewidth]{loop}
@@ -259,6 +261,7 @@ the application becomes idle and the loop restarts.
 \label{fig.env}
 }
 \end{figure}
+\end{comment}
 
 The environment is typically implemented in a host language (e.g., C) and
 controls the main event loop, invoking entry points into the reactive language
@@ -326,6 +329,7 @@ converter, USART, SPI, and nRF24L01 transceiver.
 The applications built on top of these drivers show optimal energy savings due
 to automatic standby.
 
+\begin{comment}
 Our work is largely inspired by TinyOS~\cite{wsn.tos}, a low-power OS for
 wireless devices, which also provides asynchronous events with a compile-time
 data race detector~\cite{wsn.nesc}, and automatic energy management triggered
@@ -334,6 +338,7 @@ from idle CPU states~\cite{wsn.icem}.
 We adapted these ideas to the structured reactive programming model of \CEU,
 and refined them with stronger guarantees due to lexical scope and automatic
 finalization.
+\end{comment}
 
 \begin{comment}
 % Esterel
@@ -372,9 +377,11 @@ characteristics that follow:
     execution, i.e., there's no implicit preemption or real parallelism.
 \end{description}
 
+\begin{comment}
 Structured reactive programming lets developers write code in direct style,
 recovering from the inversion of control imposed by event-driven
 execution~\cite{rp.deprecating,rp.rescala,sync_async.cooperative}.
+\end{comment}
 
 \begin{lstlisting}[
   xleftmargin=1em,
@@ -436,16 +443,17 @@ In the example, when the button is pressed (ln~5), not only the toggling loop
 will be aborted (ln~10--15), but the \code{finalize} clause will turn the LED
 off unconditionally (ln~8), since its enclosing block goes out of scope.
 %
-The \code{par/or} is regarded as an \emph{orthogonal preemption
-primitive}~\cite{esterel.preemption} because the trails need not to be tweaked
-in order to affect each other.
+%The \code{par/or} is regarded as an \emph{orthogonal preemption
+%primitive}~\cite{esterel.preemption} because the trails need not to be tweaked
+%in order to affect each other.
 
 The synchronous execution model of \CEU dictates that reactions to input events
 are atomic and that incoming events are never lost.
 %
-The event loop in Figure~\ref{fig.env} suggests this behavior since the
+%The event loop in Figure~\ref{fig.env} suggests this behavior since
+The
 environment can only generate a new input after the application yields control
-and closes the loop.
+and closes the event loop.
 %
 In Listing~\ref{lst.ceu}, even if two packets arrive simultaneously in the
 environment, the synchronous model ensures atomicity and responsiveness in the
@@ -460,6 +468,7 @@ application:
 %other, in lexical order.
 %This rule prevents race conditions for trails in parallel.
 
+\begin{comment}
 Figure~\ref{fig.ticks} illustrates the synchronous execution model of \CEU.
 %
 The continuous timeline (representing the environment) shows
@@ -560,8 +569,9 @@ at \code{D-4}.
 \label{fig.ticks}
 \end{figure}
 \endgroup
+\end{comment}
 
-
+\begin{comment}
 In order to guarantee responsiveness, the synchronous model relies on the
 \emph{synchronous hypothesis}, which states that reactions must be
 significantly faster than the rate of inputs.
@@ -571,6 +581,7 @@ at compile time.
 This restriction guarantees that all reactions to the environment are computed
 in bounded time~\cite{ceu.lctes18}, ensuring that applications are always
 responsive to upcoming events.
+\end{comment}
 
 \subsection{Lexically-Scoped Interrupt Service Routines}
 \label{sec.isrs}
@@ -585,6 +596,7 @@ the ongoing program flow abruptly.
 Such asynchronous behavior reflects the inherent concurrent nature of
 peripherals interacting with the external world.
 
+\begin{comment}
 \begin{figure}
 \centering
 \includegraphics[width=\linewidth]{sync-async}
@@ -594,6 +606,7 @@ peripherals interacting with the external world.
 \label{fig.async}
 }
 \end{figure}
+\end{comment}
 
 We propose to extend \CEU with asynchronous ISRs.
 However, asynchronous execution confronts the synchronous mindset of \CEU since
@@ -604,9 +617,9 @@ perceived after the effect of a later event.
 %
 Still, our goal is to preserve the well-behaved interaction between the \CEU
 application and the environment even in the presence of asynchronous ISRs.
-Figure~\ref{fig.async} adapts the event loop of Figure~\ref{fig.env}, with the
-original application represented as the synchronous side and the environment as
-the asynchronous side, all inside the same \CEU application.
+%Figure~\ref{fig.async} adapts the event loop of Figure~\ref{fig.env}, with the
+%original application represented as the synchronous side and the environment as
+%the asynchronous side, all inside the same \CEU application.
 %
 Our idea is to push all subtleties of asynchronous execution into device
 drivers, which emit input events to regular synchronous code in \CEU, exactly
@@ -702,8 +715,8 @@ In the example, the input driver also configures pin 2 to behave as input and
 to generate external interrupts on level transitions (ln~11--15).
 
 The example illustrates the clear separation between the application and the
-driver through an event-driven interface that reflects the desired architecture
-of Figures~\ref{fig.env}~and~\ref{fig.async}.
+driver through an event-driven interface. % that reflects the desired architecture
+%of Figures~\ref{fig.env}~and~\ref{fig.async}.
 %
 Now, the whole application is written in \CEU:
     the synchronous side remains well behaved with no low-level calls, and
@@ -778,7 +791,7 @@ thus cannot be inadvertently used outside it.
 \subsection{Safe Shared-Memory Concurrency}
 \label{sec.ceu.shared}
 
-\begin{figure}[t!]
+\begin{figure}[t]
 \begin{minipage}[t]{0.50\linewidth}
 \begin{lstlisting}[
   numbers=right,
@@ -858,6 +871,35 @@ cannot access that variable~\cite{ceu.sensys13}.
 %The static checks are optional (or raise warnings) and do not affect the
 %semantics of the language.
 
+The addition of asynchronous ISRs poses real threats concerning race conditions
+since they interrupt programs at arbitrary points.
+%
+Listing~\ref{lst.usart} illustrates a minimum USART application (ln~13--22)
+that consumes incoming bytes (ln~18--21) as they arrive (ln~16).
+%
+The USART API (ln~1--4) exposes an input event to signal incoming data (ln~3)
+and a circular buffer to prevent data loss (ln~4).
+The buffer is indispensable because the microcontroller may cope with the USART 
+speed.
+%
+The driver ISR (ln~6--11) simply appends incoming bytes to the end of the
+buffer (ln~9) and signals the application (ln~10).
+%
+As a possible race condition, note that the ISR may fire and append a new byte
+to the buffer (ln~9) just before the application clears it (ln~21), in which
+case the new byte will be lost forever.
+
+\CEU treats an \code{async/isr} as a block of code that runs in parallel with
+the rest of the program (hence the required prefix \code{spawn}).
+%
+This way, it is clear for the compiler that the accesses to \code{rx\_buf} in
+Listing~\ref{lst.usart} may lead to a race condition (ln~9,21), and \CEU raises
+a compile-time error.
+%
+The programmer is responsible to protect concurrent memory accesses with
+\code{atomic} blocks, which disables interrupts (supposedly) for a short period
+of time.
+
 \begin{lstlisting}[
   xleftmargin=1em,
   numbers=left,
@@ -891,35 +933,6 @@ loop do
     $rx_buf = 0;
 end
 \end{lstlisting}
-
-The addition of asynchronous ISRs poses real threats concerning race conditions
-since they interrupt programs at arbitrary points.
-%
-Listing~\ref{lst.usart} illustrates a minimum USART application (ln~13--22)
-that consumes incoming bytes (ln~18--21) as they arrive (ln~16).
-%
-The USART API (ln~1--4) exposes an input event to signal incoming data (ln~3)
-and a circular buffer to prevent data loss (ln~4).
-The buffer is indispensable because the microcontroller may cope with the USART 
-speed.
-%
-The driver ISR (ln~6--11) simply appends incoming bytes to the end of the
-buffer (ln~9) and signals the application (ln~10).
-%
-As a possible race condition, note that the ISR may fire and append a new byte
-to the buffer (ln~9) just before the application clears it (ln~21), in which
-case the new byte will be lost forever.
-
-\CEU treats an \code{async/isr} as a block of code that runs in parallel with
-the rest of the program (hence the required prefix \code{spawn}).
-%
-This way, it is clear for the compiler that the accesses to \code{rx\_buf} in
-Listing~\ref{lst.usart} may lead to a race condition (ln~9,21), and \CEU raises
-a compile-time error.
-%
-The programmer is responsible to protect concurrent memory accesses with
-\code{atomic} blocks, which disables interrupts (supposedly) for a short period
-of time.
 
 \begin{lstlisting}[
   xleftmargin=1em,
@@ -1020,7 +1033,8 @@ void main () {
 }
 \end{lstlisting}
 
-Our runtime implements the event loop proposed in Figure~\ref{fig.async}, which
+Our runtime
+%implements the event loop proposed in Figure~\ref{fig.async}, which
 alternates between synchronous, well-behaved execution, and asynchronous,
 unpredictable ISRs.
 %
@@ -1164,6 +1178,8 @@ Note that applications need not to be explicit about energy management to take
 advantage of sleep modes.
 All happens automatically because of the synchronous-reactive execution model
 and energy-aware runtime of \CEU.
+
+\begin{comment}
 Figure~\ref{fig.energy} shows our initial tests with five existing C/Arduino
 applications rewritten in \CEU.
 
@@ -1175,7 +1191,9 @@ applications rewritten in \CEU.
 \label{fig.energy}
 }
 \end{figure}
+\end{comment}
 
+\begin{comment}
 \section{Related Work}
 
 Our work is largely inspired by TinyOS~\cite{wsn.tos} and its companion
@@ -1207,7 +1225,7 @@ responsible for aborting the ongoing unnecessary operations.
 \CEU relies on the \code{par/or} and \code{finalize} structured mechanisms to
 manage resources automatically.
 
-\begin{comment}
+%\begin{comment}
 - CRP
 
 - finalize
@@ -1232,7 +1250,14 @@ manage resources automatically.
 - shim
 
 - electre
+%\end{comment}
 \end{comment}
+
+\section{Conclusion}
+
+Drivers
+
+Our initial tests show optimal energy savings for applications in idle states.
 
 %% Acknowledgments
 \begin{acks}                            %% acks environment is optional
