@@ -185,7 +185,7 @@ language.
 %
 In this work, we propose an interrupt handler primitive for a reactive language
 targeting embedded systems in order to take control of the whole event loop,
-from input to output.
+from inputs to outputs.
 %
 We propose the new asynchronous primitive in the context of the synchronous
 language \CEU and discuss how they synergize to avoid race conditions at
@@ -241,12 +241,12 @@ flowing from the peripherals to the application and as output events flowing
 from the application to the peripherals.
 %
 %As illustrated in Figure~\ref{fig.env},
-Peripherals can be encapsulated as a
+Peripherals can be abstracted in a
 single component, \emph{the environment}, which connects with the application
 through an event loop:
-the application sits idle until the environment awakes it on the occurrence of
+the application sits idle until the environment awakes it on
 an input;
-the application reacts to the input and generates back outputs
+the application reacts and generates back outputs
 which affect the environment;
 the application becomes idle and the loop restarts.
 
@@ -263,43 +263,49 @@ the application becomes idle and the loop restarts.
 \end{comment}
 
 Reactive languages provide dedicated syntax and semantics to deal with events
-and greatly simplify the development of applications in this domain.
+and simplify the development of applications in this domain.
 %
-However, the environment is typically implemented in a host language (e.g., C)
+However, the environment is still typically implemented in a host language (e.g., C)
 and controls the main event loop, invoking entry points into the reactive
 language runtime on the occurrence of inputs, and also receiving output calls
 from it.
 %, both through a documented API.
 %
+\begin{comment}
 As examples, Esterel~\cite{esterel.ieee91} relies on C for passing events
 between the environment and the running program~\cite{esterel.book.compiling},
 while Elm~\cite{frp.elm} uses the concept of \emph{ports}, which allows sending
 out values to JavaScript as commands and listening for values as
 subscriptions~\cite{frp.elm.ports}.
+\end{comment}
 
 The event-based interface between the reactive language and the environment is
-arguably inevitable and also happens at the appropriate layer, since it
-connects the application with the operating system (OS) resources through a
-non-invasive API.
+arguably inevitable,
+% and also happens at the appropriate layer, since it
+%connects the application with the operating system (OS) resources through a
+%non-invasive API.
 %
-However, this separation reveals the environment as a rigid system component
+%However, this separation
+but reveals the environment as a rigid system component
 that evolves in separate from the application.
 %
 It also requires two languages and the programmer has to deal with multiple
 syntaxes, incompatible type systems, and different address spaces.
 %
 Furthermore, in the context of embedded systems, a proper host OS may even be
-absent or lacking enough device drivers, which requires more low-level
+absent,
+% or lacking enough device drivers,
+which requires more low-level
 intervention from the application.
 
 In this work, we propose interrupt service routines (ISRs) as an asynchronous
 primitive for the synchronous reactive language \CEU~\cite{ceu.sensys13}.
-ISRs empower reactive applications to also implement their own device drivers
-and self-generate inputs, bypassing the need for a host environment.
+ISRs empower reactive applications with their own device drivers which
+self-generate inputs, bypassing the need for a host environment.
 %
-\CEU targets resource-constrained architectures, such as Arduino-compatible
-microcontrollers, in which applications run in the bare metal, without
-OS support.
+\CEU targets OS-less embedded architectures, such as Arduino-compatible
+microcontrollers. %, in which applications run in the bare metal, without
+%OS support.
 %In this context, device drivers are typically libraries compiled together with
 %the main program.
 %
@@ -309,35 +315,36 @@ OS support.
 %
 %In particular, \CEU is already amenable to a simple static analysis to detect
 %race conditions which we extended in this work to also encompass ISRs.
-Applications can share data buffers with drivers to avoid unnecessary copying,
+Applications in \CEU can share data buffers with drivers, to avoid unnecessary copying,
 with some static guarantee that no data races will occur.
 %
-\CEU provides a lexical finalization mechanism that we adopt in drivers to
+\CEU also provides a lexical finalization mechanism % that we adopt in drivers
+to
 properly disable interrupts and turn off peripherals completely.
 %For instance, we can delimit the scope of drivers similarly to lexically-scoped
 %variables.
 %
 Finally, the synchronous semantics of \CEU enforces that applications react
 to inputs in bounded time and remain in idle states susceptible to standby.
-With the help of drivers and a power manager, we can put the microcontroller to
-sleep automatically at optimal sleeping modes after each input reaction.
+With the help of drivers and a power manager, the microcontroller
+sleeps automatically at optimal sleeping modes after each input reaction.
 %
 %We implemented an extensible runtime that exposes hooks for the ISRs and
 %power manager, which we validated in two microcontrollers: an
 %\emph{8-bit AVR/ATmega} and a \emph{32-bit ARM/Cortex-M0}.
 %
 We implemented drivers for a variety of peripherals, such as GPIO, A/D
-converter, USART, SPI, and nRF24L01 transceiver.
+converter, USART, and nRF24L01 transceiver. %, SPI
 %
-The applications built on top of these drivers show optimal energy savings due
-to automatic standby.
+%The applications built on top of these drivers show optimal energy savings due
+%to automatic standby.
 
 Our work is largely inspired by TinyOS~\cite{wsn.tos}, a low-power OS for
-wireless devices, which also provides asynchronous events with compile-time
+sensor networks, which also provides asynchronous events with %compile-time
 data race detection~\cite{wsn.nesc}, and automatic energy management
-in idle CPU states~\cite{wsn.icem}.
+~\cite{wsn.icem}.
 %
-We adapted these ideas to the structured reactive programming model of \CEU,
+We adapted these ideas to the structured reactive model of \CEU,
 and refined them with stronger guarantees due to its support for lexically
 scoped lines of execution with automatic finalization.
 
@@ -364,7 +371,7 @@ values coming in from JS is a subscription. Pretty neat!
 \section{\CEU: Structured Synchronous Reactive Programming}
 \label{sec.ceu}
 
-\CEU~\cite{ceu.sensys13} is a Esterel-based
+\CEU~\cite{ceu.sensys13} is a Esterel-based~\cite{esterel.ieee91}
 %~\cite{ceu.tecs17}
 reactive
 programming language targeting resource-constrained embedded systems, with the
@@ -1258,7 +1265,7 @@ manage resources automatically.
 
 We extend the synchronous language \CEU with asynchronous interrupt service
 routines (ISRs) to take control of the whole event loop in reactive systems,
-from input to output.
+from inputs to outputs.
 %
 ISRs empower reactive applications to also implement their own device drivers
 and self-generate inputs, bypassing the need for a host environment.
@@ -1266,18 +1273,18 @@ and self-generate inputs, bypassing the need for a host environment.
 However, asynchronous execution confronts the well-behaved semantics of
 synchronous languages with possible race conditions.
 %
-In order to mitigate this threat, we extend the static concurrency checks of
-\CEU to detect data races between ISRs and the application.
+To mitigate this threat, we extend the static concurrency checks of \CEU to
+detect data races between ISRs and the application.
 
-Our approach for writing drivers take advantage of the lexical structured
-mechanisms of \CEU, such as parallel compositions and abortion of lines of
-execution, to offer stronger guarantees.
+Our approach for writing drivers relies on the lexical structured mechanisms of
+\CEU, such as parallel compositions and abortion of lines of execution, to
+offer stronger guarantees.
 %
-For instance, the visibility of a driver can be delimited to a scoped block
-with the guarantee that its resources will not leak after usage.
+For instance, the visibility of drivers can be delimited to scoped blocks to
+avoid resource leaks after usage.
 %
-The same mechanism permits that drivers signal the power manager that its
-peripheral is no longer required, which allows applications to use optimal
+The same mechanism allows drivers to signal the power manager that associated
+peripherals are no longer required, allowing applications to use optimal
 sleep modes to save energy automatically.
 %
 Our initial tests show optimal energy savings for applications in idle states.
