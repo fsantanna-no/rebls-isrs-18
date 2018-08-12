@@ -173,8 +173,8 @@
 
 \begin{abstract}
 In reactive and event-based systems, execution is guided by an external
-environment that generates inputs to the application and consumes outputs from
-it.
+environment that generates inputs to the application and is affected by outputs
+from it.
 Reactive languages provide dedicated syntax and semantics to deal with events
 and greatly simplify the programming experience in this domain.
 %
@@ -183,13 +183,13 @@ the very central concept of events is implemented externally to the reactive
 language.
 %
 In this work, we propose an interrupt handler primitive for a reactive language
-targeting embedded systems in order to take control of the whole event loop,
+that targets embedded systems in order to take control of the whole event loop,
 from input generation up to output effects.
 %
 We propose the new asynchronous primitive in the context of the synchronous
-language \CEU and discuss how they synergize to avoid race conditions at
-compile time, support lexically-scoped drivers, and provide automatic standby
-for applications.
+language \CEU and discuss how they synergize to prevent runtime race conditions
+at compile time, support lexically-scoped drivers, and provide automatic
+standby for applications.
 %and hot swapping of device drivers
 \end{abstract}
 
@@ -245,8 +245,7 @@ single component, \emph{the environment}, which connects with the application
 through an event loop:
 the application sits idle until the environment awakes it on
 an input;
-the application reacts and generates back outputs
-which affect the environment;
+the application reacts and generates outputs back, which affect the environment;
 the application becomes idle and the loop restarts.
 
 \begin{comment}
@@ -261,7 +260,7 @@ the application becomes idle and the loop restarts.
 \end{figure}
 \end{comment}
 
-Reactive languages provide dedicated syntax and semantics to deal with events
+Reactive languages provide syntax and semantics specialized to deal with events
 and simplify the development of applications in this domain.
 %
 However, the environment is still typically implemented in a host language (e.g., C)
@@ -298,7 +297,7 @@ intervention from the application.
 
 In this work, we propose interrupt service routines (ISRs) as an asynchronous
 primitive for the synchronous reactive language \CEU~\cite{ceu.sensys13}.
-ISRs empower reactive applications with their own device drivers which
+ISRs empower reactive applications with their own device drivers that
 self-generate inputs, bypassing the need for a host environment.
 %
 \CEU targets OS-less embedded architectures, such as Arduino-compatible
@@ -317,8 +316,7 @@ Applications in \CEU can share data buffers with drivers, to avoid unnecessary c
 with some static guarantee that no data races will occur.
 %
 \CEU also provides a lexical finalization mechanism % that we adopt in drivers
-which
-safely disables drivers and turns off peripherals completely to save energy.
+that safely disables drivers and turns off peripherals to save energy.
 %For instance, we can delimit the scope of drivers similarly to lexically-scoped
 %variables.
 %
@@ -671,7 +669,7 @@ end
   numbers=left,
   basicstyle=\ttfamily\small,
   float=t,
-  caption={Asynchronous driver for GPIO which, on hardware interrupts, emits an
+  caption={Asynchronous driver for GPIO that, on hardware interrupts, emits an
            input event into a queue.},
   label={lst.gpio.async},
   escapechar=\%,
@@ -787,7 +785,7 @@ The application is a typical periodic sensor sampling loop, but which
 designates an explicit \code{do-end} block (ln~20--24) to include the driver
 (ln~21) and use it (ln~22--23).
 %
-The driver specifies a finalization code (ln~6--12) which executes
+The driver specifies a finalization code (ln~6--12) that executes
 unconditionally whenever its enclosing block goes out of scope (ln~24).
 The \code{finalize} completely disables all A/D functionality to save energy
 (ln~8--10).
@@ -1086,7 +1084,7 @@ interrupts (e.g., GPIO falling edge).
 Our runtime supports three compile-time configurations for \code{ceu\_pm\_sleep}
 (ln~9):
 %
-The first configuration is a \emph{nop} which simply keeps the event loop
+The first configuration is a \emph{nop} that simply keeps the event loop
 running all the time without ever sleeping.
 This configuration is useful when introducing new platforms.
 %
