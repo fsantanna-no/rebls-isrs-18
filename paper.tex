@@ -367,14 +367,14 @@ values coming in from JS is a subscription. Pretty neat!
 \section{\CEU: Structured Synchronous Reactive Programming}
 \label{sec.ceu}
 
-\CEU~\cite{ceu.sensys13} is a Esterel-based~\cite{esterel.ieee91}
+\CEU~\cite{ceu.sensys13} is an Esterel-based~\cite{esterel.ieee91}
 %~\cite{ceu.tecs17}
 reactive
 programming language targeting resource-constrained embedded systems, with the
 characteristics that follow:
 %
 \begin{description}
-\item [Reactive:] code only executes in reactions to events and is idle most of
+\item [Reactive:] code only executes in reaction to events and is idle most of
     the time.
 \item [Structured:] programs use lexically-scoped structured control
     mechanisms such as \code{spawn} and \code{await} (to create and suspend
@@ -384,7 +384,7 @@ characteristics that follow:
 \end{description}
 
 Structured reactive programming lets developers write code in direct style,
-recovering from the inversion of control imposed by event-driven
+reversing from the inversion of control imposed by event-driven
 execution~\cite{rp.deprecating,rp.rescala,sync_async.cooperative}.
 
 \begin{lstlisting}[
@@ -432,8 +432,8 @@ a single-statement trail that waits for a button press before terminating
 (ln~5), and an endless loop that toggles the LED on and off whenever a radio
 packet is received (ln~10--15).
 The \code{finalize} clause (ln~7--9) ensures that, no matter how its enclosing
-trail terminates (e.g., from a button press), the LED is unconditionally
-turned off~(ln~8).
+trail terminates or aborts (i.e., even from a button press), the LED is
+unconditionally turned off~(ln~8).
 
 All communication between the application and the environment is done through
 the \code{await} and \code{emit} primitives, which awaits an input event and
@@ -451,6 +451,25 @@ The \code{par/or} is regarded as an \emph{orthogonal preemption
 primitive}~\cite{esterel.preemption} because the trails need not to be tweaked
 to affect each other.
 
+% AS: Agora entendi ... mas não é muito "interweaved" ou seja ... um trail
+% afeta o outro, e voce tira vantagem disso para que a clasula finalize seja
+% afetada ... não seria o caso de deixar claro que a clausula finalize está
+% fora de qalquer trail? Ou por outra, seu eu tivesse vários trails, todos
+% seriam interrompidos. E se cada um tivesse um finalize? todos seriam
+% executados? em que ordem?
+% FS: A questão é justamente ser menos "interweaved": Se eu escrevi o
+% comportamento do LED em uma trilha, essa mesma trilha tem que ser responsável
+% por terminar em um estado seguro para o LED (ou qq recurso). Assim, você não
+% precisa se preocupar em como as outras trilhas executam ou terminam, o seu
+% estado final só depende de você.
+% Se eu colocar para fora de qualquer trilha, eu vou ter que misturar o código
+% com diversos finalizes que não estão relacionados. Ainda tem o problema de
+% saber *onde* colocar. Esse exemplo só tem um par/or, então é óbivo, mas tem
+% programas com loops, par/or, par/and, etc aninhados.
+% Se cada trilha tiver um finalize e todas forem abortadas, elas executam em
+% ordem léxica, que é a mesma regra para quando trilhas acordam na mesma
+% reação.
+
 The synchronous execution model of \CEU dictates that reactions to input events
 are atomic and that incoming events are never lost, which we refer to as the
 \emph{atomicity} and \emph{responsiveness} properties, respectively.
@@ -462,9 +481,12 @@ are atomic and that incoming events are never lost, which we refer to as the
 In Listing~\ref{lst.ceu}, even if two packets arrive simultaneously in the
 environment, the synchronous model ensures these properties by adopting an
 event queue:
-    the first \code{await} awakes and turns the LED off atomically
-    (ln~12--13);
-    only after that, the second \code{await} will awake (ln~14).
+    the first \code{await} awakes from the first packet and turns the LED off
+    atomically (ln~12--13);
+    only after that, the second \code{await} will awake from the second packet
+    (ln~14).
+From the point of view of the program, the packets arrive in sequence and each
+is handled in separate.
 %
 %Note that if multiple trails in parallel await the same input, they will all
 %awake from it during the same reaction.
@@ -632,9 +654,13 @@ events towards regular synchronous code.
 Synchronous code preserves the atomicity and responsiveness properties,
 communicating with the environment only through events, exactly as before.
 
-As a first example, Listing~\ref{lst.gpio.sync}~and~\ref{lst.gpio.async} uses
+As a first example, Listing~\ref{lst.gpio.sync}~and~\ref{lst.gpio.async} use
 GPIOs to connect a button to an LED via software such that the LED (pin 13) is
 on whenever the button (pin 02) is pressed, and off whenever it is unpressed.
+%
+The idea is to use Listing~\ref{lst.gpio.sync} handle synchronous/atomic
+changes in the button to affect the LED, and Listing~\ref{lst.gpio.async} to
+handle asynchronous changes that are enqueued towards the synchronous side.
 
 Listing~\ref{lst.gpio.sync}, the synchronous side, first declares its interface
 with the external world and includes the asynchronous side as a driver
@@ -642,6 +668,9 @@ with the external world and includes the asynchronous side as a driver
 It then starts with the LED off (ln~5) and enters a loop (ln~6--9) that,
 whenever the button changes (ln~7), toggles the state of the LED with the new
 value (ln~8).
+%
+This code should be concise and straightforward: each button change toggles the
+LED (atomicity) and no button changes are ever lost (responsiveness).
 
 \begin{lstlisting}[
   xleftmargin=1em,
@@ -731,7 +760,7 @@ Now, the whole application is written in \CEU:
     the asynchronous side deals with the complexity of device drivers.
 %
 Nevertheless, drivers are typically write-once components developed by embedded
-specialists, which are reused in most applications.
+systems specialists, which are reused in most applications.
 %
 Note that each supported architecture requires a mapping between the
 \code{async/isr} and the actual interrupt vector table (which we provide
@@ -754,7 +783,7 @@ for the \emph{AVR/ATmega} and \emph{ARM/Cortex} microcontrollers).
   output int ADC_REQUEST;   // requests a conversion
   input  int ADC_DONE;      // conversion is done
 
-  do finalize with
+  finalize with
     {
       ADCSRA &= B01111111;  // disables A/D converter
       ACSR    = B10000000;  // disables comparator
@@ -796,7 +825,6 @@ aborted from a hypothetical \code{par/or} enclosing the driver.
 Note that the driver interface (ln~3--4) is visible only inside the block
 (ln~20--24) and thus cannot be inadvertently used outside it.
 
-\newpage
 \subsection{Safe Shared-Memory Concurrency}
 \label{sec.ceu.shared}
 
@@ -1016,7 +1044,6 @@ Support for ISRs in the same language and memory space of the application
 allows programmers to choose between efficiency and safety during development
 by providing multiple interfaces with different levels of abstraction.
 
-\newpage
 \subsection{Energy-Efficient Runtime}
 \label{sec.energy}
 
