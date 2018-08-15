@@ -886,8 +886,8 @@ Accesses to shared \code{y} are concurrent but still deterministic.},
 In \CEU, when multiple trails awake in the same reaction, they execute
 atomically in lexical order, i.e., in the order they appear in the source code.
 %
-In Figure~\ref{lst.mem}, both listings define a shared variable (ln~3) and
-assign to it in parallel trails (ln~6, 9).
+In Figure~\ref{lst.mem}, both listings define a shared variable (ln~3) which
+is assigned in parallel trails (ln~6, 9).
 %
 In Listing~\ref{lst.mem.a}, the two assignments to \code{x} can only execute in
 reactions to different events \code{A} and \code{B} (ln~5,8), which cannot
@@ -909,8 +909,9 @@ cannot access that variable~\cite{ceu.sensys13}.
 %The static checks are optional (or raise warnings) and do not affect the
 %semantics of the language.
 
-The addition of asynchronous ISRs now poses real threats concerning race conditions
-since they interrupt programs at arbitrary points.
+The addition of asynchronous ISRs now poses real threats concerning race
+conditions since they interrupt programs at arbitrary points and could possibly
+share variables with synchronous code.
 %
 Listing~\ref{lst.usart} illustrates a minimum USART application (ln~13--22)
 that consumes incoming bytes (ln~18--21) as they arrive (ln~16).
@@ -956,8 +957,10 @@ var[32] byte rx_buf;    // data buffer
 // DRIVER
 
 spawn async/isr [USART_RX_vect] do
-    rx_buf = rx_buf .. [{UDR0}];
-    emit USART_RX;
+    rx_buf = rx_buf .. [{UDR0}];  // appends new byte
+    if $rx_buf == 1 then
+        emit USART_RX; // emits unless already pending
+    end                // (assumes client consumes all)
 end
 
 // APPLICATION
@@ -965,7 +968,7 @@ end
 loop do
     await USART_RX;
     var int i;
-    loop i in [0 -> $rx_buf[ do   // `$' = length ($)
+    loop i in [0 -> $rx_buf[ do   // `$' = length
         // uses rx_buf[i]
     end
     $rx_buf = 0;
@@ -1216,6 +1219,9 @@ Note that applications never need to be explicit about energy management to take
 advantage of sleep modes.
 All happens automatically because of the synchronous reactive execution model
 and the interaction between the drivers and energy-aware runtime of \CEU.
+%
+Our initial tests show optimal energy savings for applications in idle
+states~\cite{ceu.lctes18.short}.
 
 \begin{comment}
 Figure~\ref{fig.energy} shows our initial tests with five existing C/Arduino
@@ -1316,8 +1322,6 @@ avoid resource leaks.
 The same mechanism allows drivers to signal the power manager that associated
 peripherals are no longer required, allowing applications to use optimal
 sleep modes automatically.
-%
-Our initial tests show optimal energy savings for applications in idle states.
 
 %% Acknowledgments
 \begin{acks}                            %% acks environment is optional
