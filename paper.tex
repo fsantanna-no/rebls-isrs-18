@@ -1079,11 +1079,10 @@ The language runtime
 alternates between synchronous, well-behaved execution, and asynchronous,
 unpredictable ISRs.
 %
-Since the language now has full control over the event loop and only executes
-from interrupt requests, it is possible for the runtime to enter in sleep mode
-automatically to save energy.
-%
-Listing~\ref{lst.env} is a realization of this architecture:
+The runtime now also has full control over the event loop and only executes
+from interrupt requests.
+This allows us to propose a runtime that enters in sleep mode automatically to
+save energy, as depicted in Listing~\ref{lst.env}:
 %
 The runtime defines an input queue (ln~1) in which ISRs enqueue new events
 (e.g., Listing~\ref{lst.usart.code}, ln~12).
@@ -1112,7 +1111,7 @@ efficient mode turns off all peripherals and can only awake from external
 interrupts (e.g., GPIO falling edge).
 
 Our runtime supports three compile-time configurations for \code{ceu\_pm\_sleep}
-(ln~9):
+(ln~9).
 %
 The first configuration is a \emph{nop} that simply keeps the event loop
 running all the time without ever sleeping.
@@ -1172,13 +1171,13 @@ end
 input high/low PIN_02;      // connected to a button
 loop do
     par/or do
-        await PIN_02;
+        await PIN_02;               // STATE-A
     with
         var[255] byte buf;
-        await Usart_RX(&buf, 10);
+        await Usart_RX(&buf, 10);   // STATE-A
         // uses buf
     end
-    await PIN_02;
+    await PIN_02;                   // STATE-B
 end
 \end{lstlisting}
 
