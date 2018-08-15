@@ -345,6 +345,18 @@ and refined them with stronger guarantees due to its support for lexically
 scoped lines of execution with automatic finalization.
 
 \begin{comment}
+We start with an introduction of the structured synchronous reactive
+programming model of \CEU (Section~\ref{sec.ceu}).
+Then, we propose to extend \CEU with asynchronous ISRs and discuss how it can
+interoperate with synchronous code through an event-driven interface
+(Section~\ref{sec.isrs}).
+We also propose a simple static analysis to prevent race conditions between
+synchronous and asynchronous code at compile time (Section~\ref{sec.shared}).
+Finally, we propose a new language runtime that enters in sleep mode
+automatically to save energy (Section~\ref{sec.energy}).
+\end{comment}
+
+\begin{comment}
 % Esterel
 https://books.google.com.br/books?id=O5zi14i0KP4C&pg=PA31&lpg=PA31&dq=esterel+external+signal+api&source=bl&ots=43EBAqIkSJ&sig=npYylZteOmZAqv4f7SXAtJO9xr8&hl=en&sa=X&ved=0ahUKEwjFlf7-3p_cAhWPrVkKHXsFDWgQ6AEIUjAG#v=onepage&q=esterel%20external%20signal%20api&f=false
 Esterel relies on general-purpose languages such as C or C++ in two ways.       
@@ -826,7 +838,7 @@ Note that the driver interface (ln~3--4) is visible only inside the block
 (ln~20--24) and thus cannot be inadvertently used outside it.
 
 \subsection{Safe Shared-Memory Concurrency}
-\label{sec.ceu.shared}
+\label{sec.shared}
 
 \begin{figure}[t]
 \begin{minipage}[t]{0.50\linewidth}
