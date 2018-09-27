@@ -105,6 +105,8 @@
   shapes,
 }
 
+\setlength{\belowcaptionskip}{-1pt}
+
 \begin{document}
 
 %% Title information
@@ -311,17 +313,15 @@ We adapted these ideas to the structured reactive model of \CEU,
 and refined them with stronger guarantees due to its support for lexically
 scoped lines of execution with automatic finalization.
 
-\begin{comment}
 We start with an introduction of the structured synchronous reactive
 programming model of \CEU (Section~\ref{sec.ceu}).
-Then, we propose to extend \CEU with asynchronous ISRs and discuss how it can
+Then, we propose to extend it with asynchronous ISRs and discuss how to
 interoperate with synchronous code through an event-driven interface
 (Section~\ref{sec.isrs}).
 We also propose a simple static analysis to prevent race conditions between
 synchronous and asynchronous code at compile time (Section~\ref{sec.shared}).
 Finally, we propose a new language runtime that enters in sleep mode
 automatically to save energy (Section~\ref{sec.energy}).
-\end{comment}
 
 \begin{comment}
 % Esterel
@@ -629,8 +629,8 @@ Not only this might lead to race conditions at a fine grain, but might also
 affect the ordering of events at a coarse grain: the effect of an earlier event
 might be perceived after the effect of a later event.
 %
-Still, our goal is to preserve the well-behaved interaction between the \CEU
-application and the environment even in the presence of asynchronous ISRs.
+Still, our goal is to preserve the well-behaved interaction between \CEU and
+the environment even in the presence of asynchronous ISRs.
 %Figure~\ref{fig.async} adapts the event loop of Figure~\ref{fig.env}, with the
 %original application represented as the synchronous side and the environment as
 %the asynchronous side, all inside the same \CEU application.
@@ -665,8 +665,8 @@ LED (atomicity) and no button changes are ever lost (responsiveness).
   numbers=left,
   basicstyle=\ttfamily\small,
   float=t,
-  caption={Synchronous application that turns the LED on whenever the button
-           is pressed and off whenever it is unpressed.},
+  caption={Synchronous code that turns the LED on whenever the button is
+           pressed and off whenever it is unpressed.},
   label={lst.gpio.sync},
   escapechar=\%,
 ]
@@ -909,8 +909,8 @@ cannot access that variable~\cite{ceu.sensys13}.
 %semantics of the language.
 
 The addition of asynchronous ISRs now poses real threats concerning race
-conditions since they interrupt programs at arbitrary points and could possibly
-share variables with synchronous code.
+conditions since they interrupt execution at arbitrary points and could
+possibly share memory with synchronous code.
 %
 Listing~\ref{lst.usart} illustrates a minimum serial communication (USART)
 application (ln~15--24) that consumes incoming bytes (ln~19--23) as they arrive
@@ -924,12 +924,12 @@ speed.
 The (unsafe) driver ISR (ln~6--13) simply appends incoming bytes to the end of the
 buffer (ln~9) and signals the application (ln~11).
 %
-As a possible race condition, note that the ISR may fire and append a new byte
-to the buffer (ln~9) just before the application clears it (ln~23), in which
-case the new byte will be lost forever.
+As a possible race condition, the ISR might fire and append a new byte to the
+buffer (ln~9) just before the application clears it (ln~23), in which case the
+new byte would be lost forever.
 
-\CEU treats a \code{spawn~async/isr} as a block of code that runs in parallel with
-the rest of the program (hence the prefix \code{spawn}).
+\CEU treats a \code{spawn~async/isr} as a block that runs in parallel with the
+rest of the program (hence the prefix \code{spawn}).
 %
 This way, it is clear for the compiler that the accesses to \code{rx\_buf} in
 Listing~\ref{lst.usart} may lead to race conditions (e.g., ln~9,23), and \CEU
@@ -1024,21 +1024,21 @@ end
 
 However, we do not expect that application programmers should be required to
 resolve race conditions.
-\CEU supports \code{code} reactive abstractions (similar to coroutines) that help hiding
+\CEU provides \code{code} reactive abstractions (similar to coroutines) that help hiding
 concurrency issues inside drivers.
 %
 Listing~\ref{lst.usart.code} changes the USART API (ln 1--3) to expose a code
 abstraction that expects a reference to a buffer and a number of bytes to
 receive.
-Now, the application (ln~29--35) invokes the abstraction (ln~33) passing a
-local buffer (ln~32).
+Now the application (ln~29--35) invokes the abstraction (ln~33) passing a local
+buffer (ln~32).
 %
-The driver (ln~5--27) now hides the low level interface of the previous example
-(ln~7--8) and implements the code abstraction (ln~15--27) that protects the
-accesses to the shared buffer with an \code{atomic} block (ln~18--21).
+The driver (ln~5--27) now hides the low-level interface (ln~7--8) and
+implements the abstraction (ln~15--27) that protects the accesses to the shared
+buffer with an \code{atomic} block (ln~18--21).
 %
-The abstraction copies the driver buffer into the application buffer (ln~19)
-up to the requested number of bytes (ln~22).
+The code copies the driver buffer into the application buffer (ln~19) up to the
+requested number of bytes (ln~22).
 %
 On the one hand the extra copying incurs a memory and runtime overhead, but on
 the other hand it prevents race conditions with the ISR.
@@ -1074,24 +1074,22 @@ void main () {
 }
 \end{lstlisting}
 
-The language runtime
+The language runtime now
 %implements the event loop proposed in Figure~\ref{fig.async}, which
 alternates between synchronous, well-behaved execution, and asynchronous,
 unpredictable ISRs.
 %
-The runtime now also has full control over the event loop and only executes
-from interrupt requests.
-This allows us to propose a runtime that enters in sleep mode automatically to
-save energy, as depicted in Listing~\ref{lst.env}:
+Since programs only execute from interrupts, the runtime can now also enter in
+sleep mode automatically to save energy, as depicted in Listing~\ref{lst.env}:
 %
-The runtime defines an input queue (ln~1) in which ISRs enqueue new events
-(e.g., Listing~\ref{lst.usart.code}, ln~12).
+It first defines an input queue (ln~1) in which ISRs enqueue new events (e.g.,
+Listing~\ref{lst.usart.code}, ln~12).
 %
-In the \code{main} function, we first generate the \emph{boot reaction} (ln~3),
-which starts the program, spawns the ISRs, and reaches the first \code{await}
+The \code{main} function generates thes \emph{boot reaction} once to start the
+program (ln~3), which will spawn the ISRs and reach the first \code{await}
 statements in the multiple trails of the program.
 %
-Then, the runtime enters the infinite event loop (ln~4--11) that queries the input
+Then, the runtime enters the event loop (ln~4--11), which queries the input
 queue (ln~6) to awake the program (ln~7).
 %
 ISRs execute asynchronously, emitting input events into the queue, which will
@@ -1100,7 +1098,7 @@ be queried in subsequent iterations of the loop.
 Note that if the queue is empty, the runtime enters in sleep mode to save
 energy (ln~9), and will only awake on a new hardware interrupt.
 
-Microcontrollers typically support multiple levels of sleep mode, each
+Microcontrollers typically support multiple levels of sleep modes, each
 progressively saves more energy at the expense of keeping less functionality
 active.
 %
@@ -1329,8 +1327,14 @@ sleep modes automatically.
   %% \grantnum[<url>]{<sponsorID>}{<number>} should be used to
   %% acknowledge financial support and will be used by metadata
   %% extraction tools.
-This work was supported by the Serrapilheira Institute (grant number
-Serra-1708-15612).
+  This material is based upon work supported by the
+  \grantsponsor{GS100000001}{National Science
+    Foundation}{http://dx.doi.org/10.13039/100000001} under Grant
+  No.~\grantnum{GS100000001}{nnnnnnn} and Grant
+  No.~\grantnum{GS100000001}{mmmmmmm}.  Any opinions, findings, and
+  conclusions or recommendations expressed in this material are those
+  of the author and do not necessarily reflect the views of the
+  National Science Foundation.
 \end{acks}
 
 \bibliography{my,other}
