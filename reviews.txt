@@ -1,0 +1,79 @@
+reviewer #1
+
+The paper presents an extension to CEU, a reactive/asynchronous
+language to include event input generation in the language interface
+offered to the user.  Traditionally, external events are handled with
+system-level mechanisms such as a main event loop. The paper proposes
+to include such mechanism in CEU in the context of embedded systems to
+provide developers full control of the whole event loop, from input
+generation to output.
+
+The paper is well written and the presentation of the concepts related
+to the CEU extension is clear. I believe that the paper can trigger an
+interesting discussion. I recommend acceptance.
+
+The main limitation of the paper is the lack of a proper evaluation,
+but I think this is acceptable for a workshop.
+
+Section 2 mixes different things. It provides (1) an introduction to
+CEU for the readers that are not familiar with this language, (2)
+introduces the CEU solution (i.e., the main contribution of the
+paper).
+
+For the current paper, I would suggest to dedicate a separate section
+to (1) so that the overview on CEU is clearly separated from the novel
+contribution.
+
+For the future, I encourage the authors to further explore this area
+extending the present work with a complete evaluation. Also, I would
+suggest to dedicate some effort to explain what the issue is with the
+system-based main event loop. I think it would be quite effective to
+show a side-by-side comparison of code implemented using the system
+main loop and the CEU extension. What benefits can you expect? I can
+think of safety, but I would expect composability, ease of analysis
+etc, too. Part of this comparison is already sketched in the paper in
+the section that refers to race conditions.
+
+reviewer #2
+
+Summary
+
+The  paper first explains the context: deploying reactive programming on low-resource devices such as an Arduino, by means of Ceu. Ceu is a reactive programming language, like Esterel, for resource-constrained devices such as an Arduino
+The paper identifies the following problems with most reactive languages for embedded systems:
+Reactive Programming Languages (RPL) provide syntax and semantics for dealing with events. The source of events (the environment) is still programmed in a host language (e.g. C).  The host language is also used to handle the output of events. In short, the reactive language is a second-class citizen in the host language.
+The interface between the reactive language and the host language requires the programmer to learn two syntaxes, two type systems that are probably incompatible, and use different address spaces for both environments.
+
+To solve these problems the paper proposes to augment Ceu, which is a synchronous language, with asynchronous primitives.
+
+In the classic Ceu implementation, events can not cause race conditions because of the way they are handled. Each event is processed in bounded time, and more importantly, concurrent events are handles sequentially. This principle is called the atomicity principle.
+When integrating asynchronisity with Ceu, the atomicity principle (i.e., events are executed in bounded time, and sequentially) no longer holds, resulting in race conditions, or disordering of events.
+
+The solution the paper introduces is to represent asynchronous computations as "device drivers", meaning, mocking actual peripherals. Using this approach, the asynchronous events can be integrated and handled in the synchronous code effortlessly.
+
+General Remarks
+
+The paper does not state how other languages, comparable to Ceu, address some of the aforementioned issues.  A comparison to other techniques / approaches  is desirable.
+
+The paper fails to properly showcase why the SISR’s are required. Listing 5 and 6 introduce an example of a race condition that should fail, yet the paper explains this example actually works. This example does not contribute to the paper, and should be replaced by a counter-example that shows why the proposed primitives are needed.
+
+The paper talks about incompatible type systems, but does not exemplify where this is alleviated. The examples (listing 3, 4, 7, and 10) show inline C code in the drivers, but do not discuss where the type system mismatch is actively resolved. The only variable types used in the Ceu code are of type “int”, “high/low”, and byte arrays. 
+If two type systems are being reconciled, an explanation of the rules should be given.
+
+
+Major Comments 
+(Based on section 2.1, par 4)
+While indeed the asynchronous primitives have been integrated into Ceu, they still require inline C code, which harms readability. There is the syntax of main Ceu programs, and the syntax of driver programs which are supposed to be Ceu, as well. 
+(Based on section 2.1) The programmer still requires knowledge on how to program the low-level C code (listing 3, lines 11-15).
+(Based on section 2.1, par 5)
+If the async side is triggered from an interrupt it puts an event in the queue for the sync side to process. How can the Cue program guarantee that this will not cause a buffer overflow? How does this relate to the handling of inputs in bounded time?
+(Based on listing 3 and 4) While the interrupts are partially written in Ceu, they still require a significant amount of C code. Is it really that advantageous to write them in a hybrid of Ceu and C? The paper does not discuss this point explicitly. Maybe the key contribution here is to be able to do static analysis on the entire code, but how would this then work with the inlined C code?
+While the paper repeatedly mentions that adding the interrupts to Ceu will cause them to lose the atomicity principle, it is never shown by a clear example how this might go wrong. An example with a shared variable that can go wrong is desirable. 
+
+Minor Comments
+(Section 2.1, par 5): It is unclear what the INT0_vec interrupt actually does. After some Googling, I'm assuming it's the interrupt of a button being pushed.  The code in listing 3, lines 10-15 makes no sense if one is not familiar with low-level embedded C. 
+ (Listing 4) This listing should be split into two separate listings, given that they are actually two files. 
+(Listing 4): What happens when an #include is used outside of a scoped block?  How does that interact with the finalize? Is it still executed each time the included driver is used?
+
+The paper uses some terminology related to embedded devices, which is left unexplained to the uninformed reader (e.g., USART, specific interrupt names, ..). 
+
+The "code" (Listing 8 line 3, and Listing 10 line 22) primitive is not explained in the paper.
